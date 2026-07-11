@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BÁO CÁO CHUYÊN CẦN</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f4f6f9; color: #333; padding: 12px; line-height: 1.4; }
+        .container { width: 100%; max-width: 480px; background: #ffffff; margin: 0 auto 15px auto; padding: 20px 16px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        h2 { text-align: center; color: #0f2c59; margin-bottom: 15px; font-size: 18px; font-weight: 800; }
+        .form-group { margin-bottom: 16px; background: #f8fafc; padding: 12px; border-radius: 10px; border: 1px solid #e2e8f0; }
+        label { font-weight: 700; color: #1e293b; display: block; margin-bottom: 8px; font-size: 14px; }
+        .label-badge { display: inline-block; background: #0f2c59; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; margin-left: 5px; }
+        input[type="file"] { width: 100%; padding: 10px; border: 1px dashed #94a3b8; border-radius: 8px; font-size: 14px; background-color: #ffffff; }
+        .btn { background: #0f2c59; color: white; padding: 16px; border: none; border-radius: 12px; width: 100%; font-weight: bold; font-size: 16px; cursor: pointer; margin-top: 10px; transition: 0.3s;}
+        .btn:disabled { background: #94a3b8; cursor: not-allowed; }
+        .btn-home { background: transparent; color: #64748b; border: none; padding: 10px; width: 100%; font-size: 14px; text-decoration: underline; cursor: pointer; margin-bottom: 10px; }
+        .progress-wrapper { width: 100%; background-color: #e2e8f0; border-radius: 10px; margin-top: 15px; display: none; overflow: hidden; position: relative; }
+        .progress-bar { height: 24px; background: linear-gradient(90deg, #10b981, #34d399); width: 0%; transition: width 0.2s; }
+        .progress-percent { position: absolute; width: 100%; text-align: center; top: 2px; font-size: 13px; font-weight: bold; color: #0f2c59; }
+        .status-text { text-align: center; font-size: 13px; color: #ef4444; margin-top: 8px; font-weight: bold; }
+        .history-box { background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 15px; margin-bottom: 20px; }
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 15px; }
+        .stat-card { background: white; padding: 10px 5px; border-radius: 8px; text-align: center; border: 1px solid #fcd34d; }
+        .stat-num { font-size: 18px; font-weight: 900; color: #d97706; display: block; }
+        .stat-label { font-size: 11px; color: #4b5563; font-weight: bold; }
+        .history-title { font-size: 13px; font-weight: bold; color: #b45309; margin-bottom: 8px; border-bottom: 1px solid #fde68a; padding-bottom: 5px;}
+        .history-list { list-style: none; font-size: 12px; color: #4b5563; max-height: 150px; overflow-y: auto; }
+        .history-list li { padding: 6px 0; border-bottom: 1px dashed #fcd34d; }
+        .badge-ok { background: #10b981; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; }
+        .preview-box { background: #f8fafc; border: 1px dashed #cbd5e1; padding: 14px; border-radius: 10px; font-size: 14px; white-space: pre-line; margin: 15px 0 5px 0; color: #334155; }
+        .btn-zalo { background: #0068ff; color: white; border: none; padding: 16px; font-size: 16px; font-weight: bold; border-radius: 12px; width: 100%; display: block; margin-top:15px; }
+        .hallo-banner { background: #fef3c7; border: 1px solid #fde68a; padding: 15px; border-radius: 12px; margin-bottom: 15px; text-align: center; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 9999; padding: 20px; }
+        .modal-content { background: white; padding: 24px; border-radius: 16px; width: 100%; max-width: 400px; text-align: center; }
+        .loi-nhan-box { background: #fff5f5; border: 1px solid #feb2b2; padding: 12px; border-radius: 10px; margin-bottom: 10px; }
+        .loi-nhan-label { font-size: 13px; font-weight: bold; color: #c53030; margin-bottom: 8px; display: block; }
+        .loi-nhan-input { width: 100%; padding: 10px; border: 1px solid #fc8181; border-radius: 8px; font-size: 14px; outline: none; resize: none; font-family: inherit; }
+        .loi-nhan-input:focus { border-color: #e53e3e; box-shadow: 0 0 0 2px rgba(229, 62, 62, 0.2); }
+    </style>
+</head>
+<body>
+<div class="container" id="formContainer">
+    <h2>📹 BÁO CÁO CHUYÊN CẦN</h2>
+    <button class="btn-home" onclick="window.location.href='leaderboard.html'">-> Tới Bảng vàng Vinh danh</button>
+
+    <div class="history-box">
+        <div class="stat-grid">
+            <div class="stat-card"><span class="stat-num" id="statDay">0</span><span class="stat-label">Hôm nay</span></div>
+            <div class="stat-card"><span class="stat-num" id="statWeek">0</span><span class="stat-label">Tuần này</span></div>
+            <div class="stat-card"><span class="stat-num" id="statMonth">0</span><span class="stat-label">Tháng này</span></div>
+        </div>
+        <div class="history-title">Lịch sử nộp chi tiết <span id="loadingHistory" style="font-size:10px; float:right;">Đang tải bộ đệm...</span></div>
+        <ul class="history-list" id="historyList"></ul>
+    </div>
+
+    <p id="noteLinhHoat" style="font-size: 13px; color: #d9383a; text-align: center; margin-bottom: 15px; font-weight: bold;">💡 Đang tải cấu hình chức danh...</p>
+    
+    <div class="form-group">
+        <label>1. Hành vi then chốt <span class="label-badge">Video</span></label>
+        <input type="file" id="vidThenChot" accept="video/*">
+    </div>
+    
+    <div class="form-group" id="groupSmile">
+        <label>2. Check-in Smile <span class="label-badge" style="background:#e65c00;">Ảnh Nụ Cười</span></label>
+        <input type="file" id="imgSmile" accept="image/*">
+    </div>
+
+    <button class="btn" id="btnSubmit" onclick="startUploadProcess()">🚀 LƯU THÔNG TIN</button>
+    <div class="progress-wrapper" id="progressWrap"><div class="progress-bar" id="progressBar"></div><div class="progress-percent" id="progressPercent">0%</div></div>
+    <p class="status-text" id="statusText"></p>
+</div>
+
+<div class="container" id="successContainer" style="display:none;">
+    <div class="hallo-banner"><span style="font-size: 15px; color: #b45309; font-weight: bold;">☀️ HALLO NGÀY MỚI! ✨<br>1% nỗ lực mỗi ngày tạo nên sự khác biệt khổng lồ!</span></div>
+    <h3 style="color:#10b981; font-weight:800; font-size:20px; text-align:center; margin-bottom:10px;">🎉 GHI NHẬN THÀNH CÔNG 🎉</h3>
+    
+    <div class="preview-box" id="shareContent"></div>
+    
+    <div class="loi-nhan-box">
+        <label class="loi-nhan-label">💌 Nhập lời chúc để tiếp năng lượng cho team nhé! <span style="color:red">*</span></label>
+        <textarea id="loiNhanCustom" class="loi-nhan-input" rows="3" placeholder="Ví dụ: Sáng sớm tinh mơ, chúc team làm thơ, chốt đơn ầm ầm! 💸✨"></textarea>
+    </div>
+
+    <button class="btn-zalo" onclick="copyAndOpenZalo()">🚀 GỬI KẾT QUẢ VÀO ZALO</button>
+    <button class="btn-home" style="margin-top: 15px; font-weight:bold; text-decoration:none;" onclick="window.location.href='leaderboard.html'">Đến Bảng vàng Vinh danh</button>
+</div>
+
+<div class="modal-overlay" id="warningModal">
+    <div class="modal-content">
+        <h3 style="color:#d9383a; margin-bottom:10px;">⚠️ CẢNH BÁO DỮ LIỆU CŨ</h3>
+        <p style="font-size: 14px; color:#333; margin-bottom: 15px;">Có dữ liệu tạo từ ngày trước đó. Hệ thống sẽ lưu là "Nộp bù". Bạn vẫn muốn nộp?</p>
+        <button class="btn" style="background:white; color:#333; border:1px solid #ccc; width:45%; display:inline-block; padding:10px;" onclick="document.getElementById('warningModal').style.display='none'">Hủy</button>
+        <button class="btn" style="background:#d9383a; width:45%; display:inline-block; padding:10px;" onclick="document.getElementById('warningModal').style.display='none'; processSubmit();">Vẫn nộp</button>
+    </div>
+</div>
+
+<script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbw5DF4exdcIdsnTA4A8aigsdlfKt_hZa0pyLJM0djwPSMi4jPfRq2BAbqWwCg_D3tjFlQ/exec"; 
+    // =========================================================================
+    // KAIZEN: Cấu hình tải thông tin vai trò và tính chỉ số chuyên cần từ Supabase
+    // =========================================================================
+    const SUPA_URL = "https://https://fxcqspgjawbreihdopph.supabase.co/rest/v1/";
+    const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4Y3FzcGdqYXdicmVpaGRvcHBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2Njc0NDQsImV4cCI6MjA5OTI0MzQ0NH0.rWsrsIY7F3Ae4WlNw4KZfdg6i1AivHTPIvdrVDPT_QE";
+    let currentUser = null; 
+    let currentUserRole = "Nhân viên"; 
+    let videoCheckData = { ngaySuaFile: "", dungLuongMB: 0, ketQuaCheck: "Hợp lệ", luuVetCanhBao: "Đạt chuẩn" };
+
+    window.onload = async () => {
+        let savedSession = localStorage.getItem("userMT");
+        if (!savedSession) { window.location.href = "index.html"; return; }
+        currentUser = JSON.parse(savedSession);
+        
+        try {
+            // 1. Tải thông tin chức danh của tài khoản từ bảng Summary_Leaderboard
+            let resLB = await fetch(SUPA_URL + "Summary_Leaderboard?select=*&Thông tin Nhân sự=eq." + encodeURIComponent(currentUser.thongTinNS), {
+                headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY }
+            });
+            let dataLB = await resLB.json();
+            if (dataLB && dataLB.length > 0) {
+                currentUserRole = dataLB[0]["Chuc_danh"] || dataLB[0]["Chức danh"] || "Nhân viên";
+            }
+
+            if (currentUserRole === "Quản lý") {
+                document.getElementById("groupSmile").style.display = "none";
+                document.getElementById("noteLinhHoat").innerText = "⚠️ Quản lý: Chỉ nộp Video (Hạn chót 10h00)";
+            } else {
+                document.getElementById("noteLinhHoat").innerText = "💡 Hạn chót: 16h00. Có thể nộp trước 1 nội dung!";
+            }
+
+            // 2. Tải lịch sử nộp chuyên cần của cá nhân để tính toán chỉ số
+            let resCC = await fetch(SUPA_URL + "Data_Ghi_Nhan_Chuyen_Can?select=*&Thong_Tin_Nhan_Su=eq." + encodeURIComponent(currentUser.thongTinNS) + "&order=Timestamp.desc", {
+                headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY }
+            });
+            let dataCC = await resCC.json();
+            document.getElementById("loadingHistory").style.display = "none";
+
+            let statDay = 0, statWeek = 0, statMonth = 0;
+            let today = new Date();
+            let startOfWeek = new Date(today); 
+            startOfWeek.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1)); 
+            startOfWeek.setHours(0,0,0,0);
+            let startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+            let list = document.getElementById("historyList");
+            list.innerHTML = "";
+
+            let todayStr = today.getFullYear() + "-" + ("0" + (today.getMonth() + 1)).slice(-2) + "-" + ("0" + today.getDate()).slice(-2);
+
+            if (dataCC && dataCC.length > 0) {
+                dataCC.forEach((item, idx) => {
+                    let rawTime = item["Timestamp"] || "";
+                    if (!rawTime) return;
+                    
+                    let datePart = rawTime.split(" ")[0];
+                    let timePart = rawTime.split(" ")[1] || "";
+                    let parts = datePart.split("-");
+                    let rowDate = new Date(parts[0], parts[1]-1, parts[2]);
+
+                    if (datePart === todayStr) statDay++;
+                    if (rowDate >= startOfWeek) statWeek++;
+                    if (rowDate >= startOfMonth) statMonth++;
+
+                    if (idx < 10) {
+                        let noptGi = [];
+                        if (item["Hành_Vi_Then_Chốt"] || item["Hành vi then chốt"]) noptGi.push("Then chốt");
+                        if (item["CheckIn_Smile"] || item["Check-in Smile"]) noptGi.push("Smile");
+                        let textNoiDung = noptGi.join(" + ") || "Báo cáo";
+                        
+                        let traceWarn = item["Luu_Vet_Canh_Ba"] || item["Lưu vết cảnh báo"] || "Đạt chuẩn";
+                        let badge = traceWarn !== "Nộp bù" ? `<span class="badge-ok">Đạt</span>` : `<span class="badge-ok" style="background:#f59e0b;">Nộp bù</span>`;
+                        
+                        list.innerHTML += `<li><div style="display:flex; justify-content:space-between; margin-bottom:3px;"><span>🗓️ ${datePart} (${timePart})</span> ${badge}</div><div style="font-weight:bold; color:#0f2c59;">📁 Đã nộp: ${textNoiDung}</div></li>`;
+                    }
+                });
+
+                document.getElementById("statDay").innerText = statDay;
+                document.getElementById("statWeek").innerText = statWeek;
+                document.getElementById("statMonth").innerText = statMonth;
+            } else {
+                list.innerHTML = `<li><i style="color:#9ca3af;">Chưa có dữ liệu...</i></li>`;
+            }
+
+        } catch (error) {
+            document.getElementById("loadingHistory").innerText = "⚠️ Lỗi đồng bộ lịch sử nhanh!";
+        }
+    };
+
+    document.getElementById("vidThenChot").addEventListener("change", function(e) {
+        let file = e.target.files[0]; if(!file) return;
+        videoCheckData.dungLuongMB = (file.size / (1024 * 1024)).toFixed(2);
+        let fileDate = new Date(file.lastModified);
+        videoCheckData.ngaySuaFile = fileDate.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+    });
+
+    document.getElementById("imgSmile").addEventListener("change", function(e) {
+        let file = e.target.files[0];
+        if(!file || document.getElementById("vidThenChot").files[0]) return; 
+        let fileDate = new Date(file.lastModified);
+        videoCheckData.ngaySuaFile = fileDate.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+        videoCheckData.dungLuongMB = (file.size / (1024 * 1024)).toFixed(2);
+    });
+
+    function getVideoDuration(file) {
+        return new Promise((resolve) => {
+            let video = document.createElement('video');
+            video.preload = 'metadata';
+            let timeout = setTimeout(() => { resolve("Lỗi đọc file"); }, 5000);
+            video.onloadedmetadata = function() {
+                clearTimeout(timeout); window.URL.revokeObjectURL(video.src);
+                let totalSeconds = video.duration;
+                if (isFinite(totalSeconds)) {
+                    let mins = Math.floor(totalSeconds / 60);
+                    let secs = Math.floor(totalSeconds % 60);
+                    resolve(`${mins}p ${secs}s`);
+                } else resolve("Không xác định");
+            };
+            video.onerror = function() { clearTimeout(timeout); window.URL.revokeObjectURL(video.src); resolve("Định dạng không hỗ trợ"); }
+            video.src = URL.createObjectURL(file);
+        });
+    }
+
+    function compressImageFile(file) {
+        return new Promise((resolve) => {
+            let reader = new FileReader(); reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                let img = new Image(); img.src = event.target.result;
+                img.onload = () => {
+                    let canvas = document.createElement('canvas'); let max_size = 1000; 
+                    let width = img.width, height = img.height;
+                    if (width > height) { if (width > max_size) { height *= max_size / width; width = max_size; } } 
+                    else { if (height > max_size) { width *= max_size / height; height = max_size; } }
+                    canvas.width = width; canvas.height = height;
+                    let ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, width, height);
+                    canvas.toBlob((blob) => { resolve(new File([blob], file.name, { type: 'image/jpeg' })); }, 'image/jpeg', 0.65); 
+                };
+            };
+        });
+    }
+
+    function isFileOld(file) {
+        if(!file) return false;
+        let fd = new Date(file.lastModified), td = new Date();
+        return !(fd.getDate() === td.getDate() && fd.getMonth() === td.getMonth() && fd.getFullYear() === td.getFullYear());
+    }
+
+    function startUploadProcess() {
+        let v1 = document.getElementById("vidThenChot").files[0];
+        let img = document.getElementById("imgSmile").files[0];
+        
+        if (currentUserRole === "Quản lý") {
+            if (!v1) return alert("Quản lý vui lòng tải lên Video Hành vi then chốt!");
+            img = null; 
+        } else {
+            if (!v1 && !img) return alert("Vui lòng tải lên ít nhất 1 nội dung!");
+        }
+
+        if (isFileOld(v1) || isFileOld(img)) { 
+            videoCheckData.ketQuaCheck = "Cũ"; videoCheckData.luuVetCanhBao = "Nộp bù";
+            document.getElementById("warningModal").style.display = "flex"; 
+        } else { 
+            videoCheckData.ketQuaCheck = "Hợp lệ"; videoCheckData.luuVetCanhBao = "Đạt chuẩn";
+            processSubmit(); 
+        }
+    }
+
+    async function uploadSingleFile(file, prefixName, progressMsg) {
+        if(!file) return ""; 
+        let status = document.getElementById("statusText"), pBar = document.getElementById("progressBar"), pPercent = document.getElementById("progressPercent");
+        let fileExt = file.name.substring(file.name.lastIndexOf("."));
+        let d = new Date(), ts = d.getFullYear() + ("0"+(d.getMonth()+1)).slice(-2) + ("0"+d.getDate()).slice(-2) + "_" + ("0"+d.getHours()).slice(-2) + ("0"+d.getMinutes()).slice(-2);
+        let safeFileName = currentUser.thongTinNS + "_" + prefixName + "_" + ts + fileExt;
+
+        status.innerText = `[${progressMsg}] Khởi tạo...`;
+        let initRes = await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "init_upload", fileName: safeFileName, mimeType: file.type }) });
+        let initData = await initRes.json(); if(initData.result !== "success") throw new Error(initData.error);
+        
+        let uploadUrl = initData.uploadUrl, chunkSize = 1024 * 1024 * 7, startByte = 0, finalId = "";
+
+        while (startByte < file.size) {
+            let endByte = Math.min(startByte + chunkSize, file.size);
+            let chunk = file.slice(startByte, endByte);
+            let base64Chunk = await new Promise(resolve => { let r = new FileReader(); r.onload = () => resolve(r.result.split(',')[1]); r.readAsDataURL(chunk); });
+            let percent = Math.round((endByte / file.size) * 100);
+            status.innerText = `[${progressMsg}] Đang tải... ${percent}%`;
+            pBar.style.width = percent + "%"; pPercent.innerText = percent + "%";
+
+            let chunkRes = await fetch(API_URL, {
+                method: "POST", body: JSON.stringify({ action: "upload_chunk", uploadUrl: uploadUrl, chunkBase64: base64Chunk, startByte: startByte, endByte: endByte - 1, totalSize: file.size })
+            });
+            let chunkData = await chunkRes.json();
+            if(chunkData.result !== "success") throw new Error("Lỗi mạng.");
+            if (chunkData.fileId) finalId = chunkData.fileId;
+            startByte = endByte;
+        }
+        return finalId;
+    }
+
+    async function processSubmit() {
+        let v1 = document.getElementById("vidThenChot").files[0];
+        let img = document.getElementById("imgSmile").files[0];
+        document.getElementById("btnSubmit").disabled = true;
+        document.getElementById("progressWrap").style.display = "block";
+        let status = document.getElementById("statusText");
+
+        try {
+            let thoiLuongVid = "";
+            if (v1) {
+                status.innerText = "⏳ Đang quét thời lượng video...";
+                thoiLuongVid = await getVideoDuration(v1);
+            }
+
+            let idSmile = "";
+            if(img && currentUserRole !== "Quản lý") {
+                status.innerText = "⏳ Đang xử lý Ảnh Nụ Cười...";
+                img = await compressImageFile(img);
+                idSmile = await uploadSingleFile(img, "Smile", "Tải ảnh");
+            }
+            
+            let idV1 = v1 ? `Xác thực máy (${thoiLuongVid})` : "";
+            status.innerText = "⏳ Đang đồng bộ máy chủ...";
+            document.getElementById("progressBar").style.width = "100%"; document.getElementById("progressPercent").innerText = "Hoàn tất";
+
+            let logRes = await fetch(API_URL, {
+                method: "POST", body: JSON.stringify({ 
+                    action: "chuyen_can", thongTinNhanSu: currentUser.thongTinNS, diaDiemLamViec: currentUser.diaDiem, 
+                    fileIdThenChot: idV1, fileIdSmile: idSmile,
+                    ngaySuaFile: videoCheckData.ngaySuaFile, dungLuongMB: videoCheckData.dungLuongMB,
+                    ketQuaCheck: videoCheckData.ketQuaCheck, luuVetCanhBao: videoCheckData.luuVetCanhBao
+                })
+            });
+            let logData = await logRes.json(); if(logData.result !== "success") throw new Error(logData.error);
+
+            status.innerText = "THÀNH CÔNG!";
+            let tList = [];
+            if(v1) tList.push("✅ Hành vi then chốt (Video)");
+            if(img && currentUserRole !== "Quản lý") tList.push("📸 Check-in Smile rạng rỡ");
+
+            let textPreview = `*☀️ HALLO NGÀY MỚI - FULL NĂNG LƯỢNG ☀️*\n\n• Nhân sự: *${currentUser.thongTinNS}*\n• Đã hoàn thành nội dung chuyên cần:\n  ${tList.join("\n  ")}\n`;
+            
+            let trangThaiZalo = [];
+            if (videoCheckData.ketQuaCheck === "Cũ") trangThaiZalo.push("⚠️ Nộp bù dữ liệu cũ");
+            if (logData.isLate) trangThaiZalo.push("⏰ Nộp muộn (Không ghi nhận chuỗi)");
+            
+            if (trangThaiZalo.length === 0) {
+                textPreview += `• Trạng thái: ✅ Đúng giờ`;
+            } else {
+                textPreview += `• Trạng thái: ${trangThaiZalo.join(" & ")}`;
+                if (logData.isLate) {
+                    textPreview += `\n\n👉 Trễ mất một nhịp rồi! 🐢 Chắc mải đua doanh số quá nên quên giờ đây mà 🤭 Mai nhớ canh giờ chuẩn xác hơn để giữ chuỗi rực cháy nhé! 🔥`;
+                }
+            }
+
+            document.getElementById("shareContent").innerText = textPreview;
+            document.getElementById("formContainer").style.display = "none";
+            document.getElementById("successContainer").style.display = "block";
+            document.getElementById("loiNhanCustom").value = "";
+            
+        } catch (err) {
+            alert("Lỗi tải lên: " + err.message); status.innerText = "Thất bại!"; document.getElementById("progressBar").style.background = "#ef4444"; document.getElementById("btnSubmit").disabled = false;
+        }
+    }
+
+    function copyAndOpenZalo() {
+        let loiNhanInput = document.getElementById("loiNhanCustom").value.trim();
+        if (loiNhanInput === "") {
+            alert("Bạn ơi, hãy tiếp năng lượng cho team bằng một lời chúc ngày mới nhé! ☀️");
+            document.getElementById("loiNhanCustom").focus();
+            return;
+        }
+        let finalCopyText = `*☀️ HALLO NGÀY MỚI - FULL NĂNG LƯỢNG ☀️*\n\n• Nhân sự: *${currentUser.thongTinNS}*\n• Đã checkin chuyên cần\n👉 ${loiNhanInput} 🔥`;
+        navigator.clipboard.writeText(finalCopyText).then(() => {
+            alert("Đã COPY text báo cáo! Mở Zalo dán vào group và nhớ đính kèm thêm ảnh nụ cười của bạn nhé!");
+            window.location.href = "zalo://";
+        }).catch(() => alert("Nhấn giữ phần văn bản trong khung để copy."));
+    }
+</script>
+</body>
+</html>
