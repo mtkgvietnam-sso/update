@@ -44,11 +44,8 @@
 </div>
 <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbxUu51qDA4VbqVgPtQtzHvuJsL_DDvQ68IT0wBGOAMouL0uUUaIho8e2uasMiPZYeykUw/exec"; 
-    // =========================================================================
-    // KAIZEN: Đọc danh mục câu hỏi và địa điểm từ Supabase (Mili-giây)
-    // =========================================================================
-    const SUPA_URL = "https://https://fxcqspgjawbreihdopph.supabase.co/rest/v1/";
-    const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4Y3FzcGdqYXdicmVpaGRvcHBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2Njc0NDQsImV4cCI6MjA5OTI0MzQ0NH0.rWsrsIY7F3Ae4WlNw4KZfdg6i1AivHTPIvdrVDPT_QE";
+    const SUPA_URL = "https://fxcqspgjawbreihdopph.supabase.co/rest/v1/";
+    const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4Y3FzcGdqYXdicmVpaGRvcHBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2Njc0NDQsImV4cCI6MjA5OTI0MzQ0NH0.rWsrsIY7F3Ae4WlNw4KZfdg6i1AivHTPIvdrVDPT_QE"; // Nhớ điền Key thật của bạn vào đây nhé
     let currentUser = null;
 
     window.onload = async () => {
@@ -57,35 +54,46 @@
         currentUser = JSON.parse(savedSession);
 
         try {
-            // Tải song song cả hai bảng danh mục để tiết kiệm thời gian mạng
+            // Tải song song dữ liệu danh mục từ Supabase
             let [resDD, resCH] = await Promise.all([
                 fetch(SUPA_URL + "Danh_Muc_Dia_Diem?select=*", { headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY } }),
                 fetch(SUPA_URL + "Cau_Hoi_Form?select=*", { headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY } })
             ]);
 
+            // Thiết lập bộ quét kiểm tra lỗi phản hồi từ Server Supabase
+            if (!resDD.ok) { let err = await resDD.json(); throw new Error("Bảng Địa điểm: " + (err.message || "Lỗi RLS/Tên bảng")); }
+            if (!resCH.ok) { let err = await resCH.json(); throw new Error("Bảng Câu hỏi: " + (err.message || "Lỗi RLS/Tên bảng")); }
+
             let dataDD = await resDD.json();
             let dataCH = await resCH.json();
 
-            // Khởi tạo danh sách địa điểm bán hàng gợi ý
+            // 1. Dựng danh sách địa điểm (Hỗ trợ cả trường có dấu và không dấu)
             if (dataDD && dataDD.length > 0) {
                 let dlHTML = `<datalist id="listDiaDiem">`;
                 dataDD.forEach(dd => {
-                    let textDD = dd["Tên địa điểm"] || dd["Ten_dia_diem"];
-                    if (textDD) dlHTML += `<option value="${textDD}">`;
+                    let textDD = dd["Tên địa điểm"] || dd["Ten_dia_diem"] || dd["Tên địa điểm bán hàng"];
+                    if (textDD) dlHTML += `<option value="${textDD.toString().trim()}">`;
                 });
                 dlHTML += `</datalist>`;
                 document.body.insertAdjacentHTML('beforeend', dlHTML);
             }
 
-            // Dựng giao diện form động dựa trên danh sách câu hỏi
+            // 2. Dựng Form câu hỏi động (Hệ thống tự động ánh xạ tiêu đề chuẩn)
             let area = document.getElementById("dynamicQuestionsArea");
             area.innerHTML = "";
+            
+            if (!dataCH || dataCH.length === 0) {
+                throw new Error("Không có dữ liệu câu hỏi nào được trả về. Vui lòng tắt RLS trên Supabase!");
+            }
+
             dataCH.forEach(ch => {
-                let tieuDe = ch["Tiêu đề câu hỏi"] || ch["Tieu_de_cau_hoi"];
-                let loai = ch["Loại câu hỏi"] || ch["Loai_cau_hoi"];
-                let tuyChonRaw = ch["Danh sách tùy chọn"] || ch["Danh_sach_tuy_chon"] || "";
-                let tuyChon = tuyChonRaw ? tuyChonRaw.split(",").map(item => item.trim()) : [];
+                let tieuDe = ch["Tiêu đề câu hỏi"] || ch["Tieu_de_cau_hoi"] || ch["tieu_de"];
+                let loai = ch["Loại câu hỏi"] || ch["Loai_cau_hoi"] || ch["loai"];
+                let _tuyChonRaw = ch["Danh sách tùy chọn"] || ch["Danh_sach_tuy_chon"] || ch["tuy_chon"] || "";
+                let tuyChon = _tuyChonRaw ? _tuyChonRaw.split(",").map(item => item.trim()) : [];
                 
+                if (!tieuDe) return; // Bỏ qua nếu dòng lỗi/trống
+
                 let block = `<div class="form-group"><label>${tieuDe}</label>`;
                 if (tieuDe.toLowerCase().includes("địa điểm làm việc")) {
                     block += `<input type="text" data-title="${tieuDe}" required placeholder="Gõ từ khóa để tìm địa điểm..." list="listDiaDiem" autocomplete="off">`;
@@ -108,8 +116,9 @@
             btnSubmit.innerText = "GỬI THÔNG TIN";
 
         } catch (error) {
-            alert("Lỗi nạp cấu trúc biểu mẫu từ máy chủ!"); 
-            document.getElementById("btnSubmit").innerText = "❌ Lỗi hệ thống, vui lòng F5 làm mới";
+            alert("Cổng thông tin báo lỗi kết nối bộ đệm:\n" + error.message + "\n\n💡 Mẹo: Bạn nhớ kiểm tra xem đã DISABLE RLS cho 2 bảng này trên Supabase chưa nhé!"); 
+            document.getElementById("btnSubmit").innerText = "❌ Lỗi kết nối dữ liệu Supabase";
+            console.error("Chi tiết log lỗi:", error);
         }
     };
 
@@ -136,7 +145,7 @@
         e.preventDefault();
         let inputs = document.getElementById("dynamicQuestionsArea").querySelectorAll("input, select, textarea");
         if(inputs.length === 0) {
-            alert("Hệ thống chưa đồng bộ xong cấu trúc, vui lòng đợi trong giây lát!");
+            alert("Hệ thống chưa đồng bộ xong cấu trúc, vui lòng chờ trong giây lát!");
             return;
         }
 
