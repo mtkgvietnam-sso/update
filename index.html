@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CỔNG THÔNG TIN MT</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f4f6f9; color: #333; padding: 12px; line-height: 1.4; }
+        .container { width: 100%; max-width: 480px; background: #ffffff; margin: 0 auto 15px auto; padding: 25px 16px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        h2 { text-align: center; color: #0f2c59; margin-bottom: 5px; font-size: 20px; font-weight: 800; text-transform: uppercase; }
+        .subtitle { text-align: center; color: #666; font-size: 14px; margin-bottom: 25px; }
+        .form-group { margin-bottom: 20px; }
+        input { width: 100%; padding: 15px 12px; border: 1px solid #cdd6e2; border-radius: 10px; font-size: 16px; text-align: center; font-weight: bold; letter-spacing: 1px; outline: none; }
+        .btn-submit { background: #0f2c59; color: white; border: none; padding: 16px; width: 100%; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .btn-submit:disabled { background: #a5b4fc; cursor: not-allowed; }
+        .readonly-box { background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 12px; text-align: center; line-height: 1.6; margin-bottom: 20px; }
+        .grid-menu { display: grid; grid-template-columns: 1fr; gap: 12px; }
+        .btn-menu { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 18px; border-radius: 12px; font-weight: bold; font-size: 16px; text-decoration: none; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .btn-tungbill { background: linear-gradient(135deg, #0f2c59, #1a4a96); }
+        .btn-chuyencan { background: linear-gradient(135deg, #e65c00, #F9D423); }
+        .btn-leaderboard { background: linear-gradient(135deg, #111827, #374151); }
+        .btn-logout { background: transparent; color: #d9383a; border: 1px solid #d9383a; padding: 12px; width: 100%; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+        .loading { text-align: center; color: #666; font-size: 14px; font-style: italic; display: none; margin-top: 12px; }
+    </style>
+</head>
+<body>
+<div class="container" id="loginContainer">
+    <h2>XÁC THỰC NHÂN SỰ</h2>
+    <p class="subtitle">Vui lòng nhập Mã nhân sự 6 kí tự</p>
+    <div class="form-group"><input type="text" id="inputMaNS" placeholder="VD: 009743" required></div>
+    <button class="btn-submit" onclick="login()" id="btnLogin">ĐĂNG NHẬP</button>
+    <div class="loading" id="loadingDataText" style="display:block;">⏳ Đang kết nối CSDL siêu tốc...</div>
+</div>
+<div class="container" id="portalContainer" style="display: none;">
+    <h2>CỔNG THÔNG TIN MT</h2>
+    <div class="readonly-box" id="displayUserInfo"></div>
+    <div class="grid-menu">
+        <a href="tung_bill.html" class="btn-menu btn-tungbill">🚀 CUỘC CHIẾN TUNG BILL</a>
+        <a href="chuyen_can.html" class="btn-menu btn-chuyencan">📹 BÁO CÁO CHUYÊN CẦN</a>
+        <a href="leaderboard.html" class="btn-menu btn-leaderboard">🏆 BẢNG VÀNG VINH DANH</a>
+    </div>
+    <button class="btn-logout" onclick="logout()">Đăng xuất tài khoản</button>
+</div>
+<script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbzZYRrXOECtdde8TiZMd0AyjRdY-jv6MQlab_AHr60_Ugbo8TxEIzkaFxuup5Ibzh4o4Q/exec"; 
+    // =========================================================================
+    // KAIZEN: Đọc danh mục từ Supabase để tăng tốc xử lý đăng nhập
+    // =========================================================================
+    const SUPA_URL = "https://[THAY_BANG_PROJECT_URL_CUA_BAN].supabase.co/rest/v1/";
+    const SUPA_KEY = "[THAY_BANG_API_KEY_CUA_BAN]";
+    let dbNhanSu = [];
+
+    window.onload = () => {
+        document.getElementById("btnLogin").disabled = true;
+        
+        // Gọi dữ liệu trực tiếp từ bảng Danh_Muc_Nhan_Su trên Supabase
+        fetch(SUPA_URL + "Danh_Muc_Nhan_Su?select=*", {
+            headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY }
+        })
+        .then(res => res.json())
+        .then(data => {
+            // Chuyển đổi cấu trúc trường dữ liệu tương thích với logic cũ
+            dbNhanSu = data.map(item => ({
+                thongTinNS: item["Thông tin Nhân sự"] || item["Thong_tin_Nhan_su"],
+                diaDiem: item["ĐỊA ĐIỂM LÀM VIỆC_1"] || item["Dia_diem_lam_viec_1"] || item["Dia_diem"]
+            })).filter(ns => ns.thongTinNS);
+
+            document.getElementById("loadingDataText").style.display = "none";
+            document.getElementById("btnLogin").disabled = false;
+            let savedSession = localStorage.getItem("userMT");
+            if(savedSession) showPortal(JSON.parse(savedSession));
+        })
+        .catch(() => { 
+            document.getElementById("loadingDataText").innerText = "❌ Lỗi kết nối máy chủ dữ liệu tốc độ cao!"; 
+        });
+    };
+
+    function login() {
+        let inputCode = document.getElementById("inputMaNS").value.trim().toLowerCase();
+        if(!inputCode) return alert("Vui lòng nhập mã nhân sự!");
+        let foundUser = dbNhanSu.find(ns => {
+            let parts = ns.thongTinNS.toLowerCase().split(/[\s\-_]+/);
+            return parts.includes(inputCode) || ns.thongTinNS.toLowerCase().includes(inputCode);
+        });
+        if(foundUser) {
+            localStorage.setItem("userMT", JSON.stringify(foundUser));
+            showPortal(foundUser);
+        } else { alert("Mã nhân sự không chính xác!"); }
+    }
+
+    function showPortal(user) {
+        document.getElementById("loginContainer").style.display = "none";
+        document.getElementById("portalContainer").style.display = "block";
+        document.getElementById("displayUserInfo").innerHTML = `<b>👤 ${user.thongTinNS}</b><br><span style="color:#64748b; font-size: 13px;">📍 ${user.diaDiem}</span>`;
+    }
+
+    function logout() {
+        if(confirm("Bạn muốn đăng xuất?")) { localStorage.removeItem("userMT"); location.reload(); }
+    }
+</script>
+</body>
+</html>
