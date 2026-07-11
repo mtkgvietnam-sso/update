@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TUNG BILL</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f4f6f9; color: #333; padding: 12px; line-height: 1.4; }
+        .container { width: 100%; max-width: 480px; background: #ffffff; margin: 0 auto 15px auto; padding: 22px 16px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        h2 { text-align: center; color: #0f2c59; margin-bottom: 20px; font-size: 18px; font-weight: 800; }
+        .form-group { margin-bottom: 16px; }
+        label { font-weight: 600; color: #2c3e50; display: block; margin-bottom: 6px; font-size: 14px; }
+        input, select, textarea { width: 100%; padding: 14px 12px; border: 1px solid #cdd6e2; border-radius: 10px; font-size: 15px; outline: none; }
+        select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23666' d='M0 0l5 5 5-5z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; background-size: 12px; -webkit-appearance: none; appearance: none; }
+        .btn-submit { background: #0f2c59; color: white; border: none; padding: 16px; width: 100%; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .btn-submit:disabled { background: #a5b4fc; cursor: not-allowed; }
+        .btn-home { background: transparent; color: #64748b; border: none; padding: 10px; width: 100%; font-size: 14px; text-decoration: underline; cursor: pointer; margin-bottom: 15px; }
+        .success-card { text-align: center; }
+        .success-card h3 { color: #10b981; font-size: 22px; margin-bottom: 12px; }
+        .preview-box { background: #f8fafc; border: 1px dashed #cbd5e1; padding: 14px; border-radius: 10px; text-align: left; font-size: 14px; white-space: pre-line; margin: 18px 0; color: #334155; }
+        .btn-zalo { background: #0068ff; color: white; border: none; padding: 16px; font-size: 16px; font-weight: bold; border-radius: 12px; width: 100%; }
+        .loading { text-align: center; color: #666; font-size: 14px; font-style: italic; display: none; margin-top: 12px; }
+    </style>
+</head>
+<body>
+<div class="container" id="formContainer">
+    <h2>🚀 CUỘC CHIẾN TUNG BILL</h2>
+    <button class="btn-home" onclick="window.location.href='chuyen_can.html'">-> Tới Báo cáo Chuyên cần</button>
+    <form id="dynamicForm" autocomplete="off">
+        <div id="dynamicQuestionsArea"></div>
+        <button type="submit" class="btn-submit" id="btnSubmit" disabled>⏳ Đang nạp cấu trúc Form từ bộ đệm...</button>
+        <div class="loading" id="loadingText">⏳ Đang xử lý dữ liệu...</div>
+    </form>
+</div>
+<div class="container" id="successContainer" style="display:none;">
+    <div class="success-card">
+        <h3>🎉 GHI NHẬN THÀNH CÔNG! 🎉</h3>
+        <p style="font-size: 14px; color: #666;">Bấm nút dưới đây để báo cáo lên Zalo Group:</p>
+        <div class="preview-box" id="shareContent"></div>
+        <button class="btn-zalo" onclick="copyAndOpenZalo()">🚀 KHOE KẾT QUẢ LÊN ZALO</button>
+        <button class="btn-home" style="margin-top: 15px; font-weight:bold; text-decoration:none;" onclick="window.location.href='index.html'">Về trang chủ</button>
+    </div>
+</div>
+<script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbzZYRrXOECtdde8TiZMd0AyjRdY-jv6MQlab_AHr60_Ugbo8TxEIzkaFxuup5Ibzh4o4Q/exec"; 
+    // =========================================================================
+    // KAIZEN: Đọc danh mục câu hỏi và địa điểm từ Supabase (Mili-giây)
+    // =========================================================================
+    const SUPA_URL = "https://[THAY_BANG_PROJECT_URL_CUA_BAN].supabase.co/rest/v1/";
+    const SUPA_KEY = "[THAY_BANG_API_KEY_CUA_BAN]";
+    let currentUser = null;
+
+    window.onload = async () => {
+        let savedSession = localStorage.getItem("userMT");
+        if (!savedSession) { window.location.href = "index.html"; return; }
+        currentUser = JSON.parse(savedSession);
+
+        try {
+            // Tải song song cả hai bảng danh mục để tiết kiệm thời gian mạng
+            let [resDD, resCH] = await Promise.all([
+                fetch(SUPA_URL + "Danh_Muc_Dia_Diem?select=*", { headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY } }),
+                fetch(SUPA_URL + "Cau_Hoi_Form?select=*", { headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY } })
+            ]);
+
+            let dataDD = await resDD.json();
+            let dataCH = await resCH.json();
+
+            // Khởi tạo danh sách địa điểm bán hàng gợi ý
+            if (dataDD && dataDD.length > 0) {
+                let dlHTML = `<datalist id="listDiaDiem">`;
+                dataDD.forEach(dd => {
+                    let textDD = dd["Tên địa điểm"] || dd["Ten_dia_diem"];
+                    if (textDD) dlHTML += `<option value="${textDD}">`;
+                });
+                dlHTML += `</datalist>`;
+                document.body.insertAdjacentHTML('beforeend', dlHTML);
+            }
+
+            // Dựng giao diện form động dựa trên danh sách câu hỏi
+            let area = document.getElementById("dynamicQuestionsArea");
+            area.innerHTML = "";
+            dataCH.forEach(ch => {
+                let tieuDe = ch["Tiêu đề câu hỏi"] || ch["Tieu_de_cau_hoi"];
+                let loai = ch["Loại câu hỏi"] || ch["Loai_cau_hoi"];
+                let tuyChonRaw = ch["Danh sách tùy chọn"] || ch["Danh_sach_tuy_chon"] || "";
+                let tuyChon = tuyChonRaw ? tuyChonRaw.split(",").map(item => item.trim()) : [];
+                
+                let block = `<div class="form-group"><label>${tieuDe}</label>`;
+                if (tieuDe.toLowerCase().includes("địa điểm làm việc")) {
+                    block += `<input type="text" data-title="${tieuDe}" required placeholder="Gõ từ khóa để tìm địa điểm..." list="listDiaDiem" autocomplete="off">`;
+                }
+                else if(loai === "text") block += `<input type="text" data-title="${tieuDe}" required placeholder="Nhập câu trả lời...">`;
+                else if(loai === "textarea") block += `<textarea data-title="${tieuDe}" rows="3" required placeholder="Nhập nội dung..."></textarea>`;
+                else if(loai === "number") block += `<input type="number" data-title="${tieuDe}" min="0" required placeholder="Nhập số...">`;
+                else if(loai === "select") {
+                    block += `<select data-title="${tieuDe}" required><option value="">-- Chọn đáp án --</option>`;
+                    tuyChon.forEach(o => block += `<option value="${o}">${o}</option>`);
+                    block += `</select>`;
+                } 
+                else if(loai === "file") block += `<input type="file" id="fileAnhDong" data-title="${tieuDe}" accept="image/*">`;
+                block += `</div>`;
+                area.innerHTML += block;
+            });
+
+            let btnSubmit = document.getElementById("btnSubmit");
+            btnSubmit.disabled = false;
+            btnSubmit.innerText = "GỬI THÔNG TIN";
+
+        } catch (error) {
+            alert("Lỗi nạp cấu trúc biểu mẫu từ máy chủ!"); 
+            document.getElementById("btnSubmit").innerText = "❌ Lỗi hệ thống, vui lòng F5 làm mới";
+        }
+    };
+
+    document.getElementById("dynamicQuestionsArea").addEventListener("change", function(e) {
+        let title = e.target.getAttribute("data-title");
+        if(e.target.tagName === "SELECT" && title && (title.includes("Trải nghiệm") || title.includes("Tình huống"))) {
+            let selectedValue = e.target.value;
+            let fileInput = document.getElementById("fileAnhDong");
+            if(fileInput) {
+                let nonRequireValues = ["Chạm - Thử", "Chạm chưa mua"];
+                let fileLabel = fileInput.parentElement.querySelector("label");
+                if(selectedValue !== "" && !nonRequireValues.includes(selectedValue)) {
+                    fileInput.required = true; 
+                    fileLabel.innerHTML = fileInput.getAttribute("data-title") + ' <span style="color:#d9383a; font-weight:bold;">(*) Bắt buộc</span>';
+                } else {
+                    fileInput.required = false;
+                    fileLabel.innerHTML = fileInput.getAttribute("data-title");
+                }
+            }
+        }
+    });
+
+    document.getElementById("dynamicForm").addEventListener("submit", function(e) {
+        e.preventDefault();
+        let inputs = document.getElementById("dynamicQuestionsArea").querySelectorAll("input, select, textarea");
+        if(inputs.length === 0) {
+            alert("Hệ thống chưa đồng bộ xong cấu trúc, vui lòng đợi trong giây lát!");
+            return;
+        }
+
+        document.getElementById("btnSubmit").disabled = true;
+        document.getElementById("loadingText").style.display = "block";
+        let cauHoiDongData = {}, textZalo = "";
+        
+        inputs.forEach(input => {
+            let tieuDeCH = input.getAttribute("data-title");
+            let val = input.value;
+            if(input.type === "file") { cauHoiDongData[tieuDeCH] = "[FILE_ANH]"; } 
+            else {
+                cauHoiDongData[tieuDeCH] = val;
+                if (input.type === "number" && val !== "") textZalo += `• ${tieuDeCH}: ${Number(val).toLocaleString('de-DE')}\n`;
+                else textZalo += `• ${tieuDeCH}: ${val}\n`;
+            }
+        });
+
+        let payload = { action: "tung_bill", thongTinNhanSu: currentUser.thongTinNS, diaDiemLamViec: currentUser.diaDiem, cauHoiDong: cauHoiDongData };
+        let fileAnh = document.getElementById("fileAnhDong");
+        if (fileAnh && fileAnh.files[0]) {
+            let reader = new FileReader(); reader.readAsDataURL(fileAnh.files[0]);
+            reader.onload = function () { payload.imageBuffer = reader.result; payload.imageName = fileAnh.files[0].name; submitGoogle(payload, textZalo); };
+        } else { submitGoogle(payload, textZalo); }
+    });
+
+    function submitGoogle(payload, textZalo) {
+        fetch(API_URL, { method: "POST", body: JSON.stringify(payload) })
+        .then(res => res.json()).then(res => {
+            if(res.result === "success") {
+                let textFinal = `*🔥 CHIẾN BINH LAN TỎA MỤC TIÊU 🔥*\n\n• Nhân sự: *${currentUser.thongTinNS}*\n• Vùng/Địa điểm: ${currentUser.diaDiem}\n${textZalo}\n🚀 Em vừa hoàn thành báo cáo hoạt động! Đồng đội cùng tăng tốc nhé! 💪✨`;
+                document.getElementById("shareContent").innerText = textFinal;
+                document.getElementById("formContainer").style.display = "none";
+                document.getElementById("successContainer").style.display = "block";
+            } else { alert("Hệ thống lỗi: " + res.error); resetBtn(); }
+        }).catch(() => { alert("Lỗi kết nối mạng!"); resetBtn(); });
+    }
+    
+    function resetBtn() { 
+        document.getElementById("btnSubmit").disabled = false; 
+        document.getElementById("btnSubmit").innerText = "GỬI THÔNG TIN"; 
+        document.getElementById("loadingText").style.display = "none"; 
+    }
+    
+    function copyAndOpenZalo() {
+        navigator.clipboard.writeText(document.getElementById("shareContent").innerText).then(() => {
+            alert("Đã COPY văn bản báo cáo! Bạn dán trực tiếp vào Zalo."); window.location.href = "zalo://";
+        }).catch(() => alert("Lỗi sao chép bộ nhớ tạm."));
+    }
+</script>
+</body>
+</html>
