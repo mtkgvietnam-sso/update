@@ -43,10 +43,6 @@
     <button class="btn-logout" onclick="logout()">Đăng xuất tài khoản</button>
 </div>
 <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbyWJuCGC272CXjOO48d3kYDsxGKuuFa8ic1xbdrJWZegZSPu-lgy44uyXFnvx-pH10dEQ/exec"; 
-    // =========================================================================
-    // KAIZEN: Đọc danh mục từ Supabase để tăng tốc xử lý đăng nhập
-    // =========================================================================
     const SUPA_URL = "https://fxcqspgjawbreihdopph.supabase.co/rest/v1/";
     const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4Y3FzcGdqYXdicmVpaGRvcHBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2Njc0NDQsImV4cCI6MjA5OTI0MzQ0NH0.rWsrsIY7F3Ae4WlNw4KZfdg6i1AivHTPIvdrVDPT_QE";
     let dbNhanSu = [];
@@ -54,13 +50,11 @@
     window.onload = () => {
         document.getElementById("btnLogin").disabled = true;
         
-        // Gọi dữ liệu trực tiếp từ bảng Danh_Muc_Nhan_Su trên Supabase
         fetch(SUPA_URL + "Danh_Muc_Nhan_Su?select=*", {
             headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY }
         })
         .then(res => res.json())
         .then(data => {
-            // Chuyển đổi cấu trúc trường dữ liệu tương thích với logic cũ
             dbNhanSu = data.map(item => ({
                 thongTinNS: item["Thông tin Nhân sự"] || item["Thong_tin_Nhan_su"],
                 diaDiem: item["ĐỊA ĐIỂM LÀM VIỆC_1"] || item["Dia_diem_lam_viec_1"] || item["Dia_diem"]
