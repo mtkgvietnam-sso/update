@@ -109,6 +109,7 @@
         currentUser = JSON.parse(savedSession);
         
         try {
+            // 1. Tải thông tin chức danh của tài khoản
             let resLB = await fetch(SUPA_URL + "Summary_Leaderboard?select=*&Thông tin Nhân sự=eq." + encodeURIComponent(currentUser.thongTinNS), {
                 headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY }
             });
@@ -124,6 +125,7 @@
                 document.getElementById("noteLinhHoat").innerText = "💡 Hạn chót: 16h00. Có thể nộp trước 1 nội dung!";
             }
 
+            // 2. Tải lịch sử nộp chuyên cần của cá nhân
             let resCC = await fetch(SUPA_URL + "Data_Ghi_Nhan_Chuyen_Can?select=*&Thong_Tin_Nhan_Su=eq." + encodeURIComponent(currentUser.thongTinNS) + "&order=Timestamp.desc", {
                 headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY }
             });
@@ -131,32 +133,46 @@
             document.getElementById("loadingHistory").style.display = "none";
 
             let statDay = 0, statWeek = 0, statMonth = 0;
+            
+            // XỬ LÝ CHUẨN MÚI GIỜ HỆ THỐNG ĐỂ TÍNH ĐỘC LẬP
             let today = new Date();
+            let startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+            
             let startOfWeek = new Date(today); 
-            startOfWeek.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1)); 
+            let dayOfWeek = today.getDay();
+            let distance = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Quy về thứ 2 đầu tuần
+            startOfWeek.setDate(today.getDate() + distance);
             startOfWeek.setHours(0,0,0,0);
-            let startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+            let startOfWeekTime = startOfWeek.getTime();
+            
+            let startOfMonthTime = new Date(today.getFullYear(), today.getMonth(), 1).getTime();
 
             let list = document.getElementById("historyList");
             list.innerHTML = "";
-
-            let todayStr = today.getFullYear() + "-" + ("0" + (today.getMonth() + 1)).slice(-2) + "-" + ("0" + today.getDate()).slice(-2);
 
             if (dataCC && dataCC.length > 0) {
                 dataCC.forEach((item, idx) => {
                     let rawTime = item["Timestamp"] || "";
                     if (!rawTime) return;
                     
-                    let datePart = rawTime.split(" ")[0];
-                    let timePart = rawTime.split(" ")[1] || "";
-                    let parts = datePart.split("-");
-                    let rowDate = new Date(parts[0], parts[1]-1, parts[2]);
+                    // Bóc tách chuẩn chuỗi ISO sang đối tượng Date an toàn
+                    let cleanTimeStr = rawTime.replace(" ", "T").split("+")[0];
+                    let rowDate = new Date(cleanTimeStr);
+                    if (isNaN(rowDate.getTime())) {
+                        // Dự phòng nếu chuỗi là dd-MM-yyyy
+                        let p = rawTime.split(" ")[0].split("-");
+                        rowDate = new Date(p[0], p[1]-1, p[2]);
+                    }
+                    let rowTimeMs = rowDate.getTime();
 
-                    if (datePart === todayStr) statDay++;
-                    if (rowDate >= startOfWeek) statWeek++;
-                    if (rowDate >= startOfMonth) statMonth++;
+                    // Thống kê chuẩn xác theo mili-giây
+                    if (rowTimeMs >= startOfToday) statDay++;
+                    if (rowTimeMs >= startOfWeekTime) statWeek++;
+                    if (rowTimeMs >= startOfMonthTime) statMonth++;
 
                     if (idx < 10) {
+                        let datePart = rawTime.split(" ")[0];
+                        let timePart = rawTime.split(" ")[1] || "";
                         let noptGi = [];
                         if (item["Hành_Vi_Then_Chốt"] || item["Hành vi then chốt"]) noptGi.push("Then chốt");
                         if (item["CheckIn_Smile"] || item["Check-in Smile"]) noptGi.push("Smile");
