@@ -100,11 +100,11 @@
             listNhanVien.sort((a, b) => b.diem - a.diem);
             listQuanLy.sort((a, b) => b.diem - a.diem);
 
-            // 2. Tải log chuyên cần của ngày hôm nay từ Supabase để xét Top sớm và Nhắc nhở
+            // 2. Tải log chuyên cần của ngày hôm nay - FIX LỖI SỬ DỤNG TỪ KHÓA ILIKE CHUẨN SUPABASE VÀ CƠ CHẾ DẤU %
             let today = new Date();
             let dateStringLog = today.getFullYear() + "-" + ("0" + (today.getMonth() + 1)).slice(-2) + "-" + ("0" + today.getDate()).slice(-2);
 
-            let resCC = await fetch(SUPA_URL + "Data_Ghi_Nhan_Chuyen_Can?select=*&Timestamp=like." + dateStringLog + "*", {
+            let resCC = await fetch(SUPA_URL + "Data_Ghi_Nhan_Chuyen_Can?select=*&Timestamp=ilike." + dateStringLog + "%", {
                 headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY }
             });
             let dataCC = await resCC.json();
