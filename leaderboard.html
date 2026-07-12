@@ -46,7 +46,7 @@
         <button class="tab-btn" onclick="openTab(event, 'tabEarly')">☀️<br>TOP SỚM</button>
         <button class="tab-btn alert-tab" onclick="openTab(event, 'tabMiss')">🚨<br>NHẮC NHỞ</button>
     </div>
-    <div id="loadingArea" class="loading">⏳ Đang đồng bộ dữ liệu...</div>
+    <div id="loadingArea" class="loading">⏳ Đang đồng bộ dữ liệu siêu tốc...</div>
 
     <div id="tabNV" class="tab-content active"><table class="rank-table"><thead><tr><th>TOP</th><th>CHIẾN BINH</th><th style="text-align: right;">ĐIỂM / CHUỖI</th></tr></thead><tbody id="bodyNV"></tbody></table></div>
     <div id="tabQL" class="tab-content"><table class="rank-table"><thead><tr><th>TOP</th><th>THỦ LĨNH</th><th style="text-align: right;">ĐIỂM / CHUỖI</th></tr></thead><tbody id="bodyQL"></tbody></table></div>
@@ -63,21 +63,95 @@
     <span class="btn-back" onclick="window.location.href='https://ctt-ashy.vercel.app'">← Trở về CỔNG THÔNG TIN</span>
 </div>
 <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbyWJuCGC272CXjOO48d3kYDsxGKuuFa8ic1xbdrJWZegZSPu-lgy44uyXFnvx-pH10dEQ/exec";
+    const SUPA_URL = "https://fxcqspgjawbreihdopph.supabase.co/rest/v1/";
+    const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4Y3FzcGdqYXdicmVpaGRvcHBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2Njc0NDQsImV4cCI6MjA5OTI0MzQ0NH0.rWsrsIY7F3Ae4WlNw4KZfdg6i1AivHTPIvdrVDPT_QE";
     let globalMissList = [];
 
-    window.onload = () => {
-        fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "get_leaderboard" }) }).then(res => res.json()).then(data => {
-            document.getElementById("loadingArea").style.display = "none";
-            if(data.result === "success") {
-                renderTable(data.topNhanVien, "bodyNV"); renderTable(data.topQuanLy, "bodyQL");
-                renderTableEarly(data.topSomNhat, "bodyEarly"); 
-                
-                globalMissList = data.chuaXong;
-                populateFilter(globalMissList);
-                renderFilteredMiss();
+    window.onload = async () => {
+        try {
+            // 1. Tải danh sách tích lũy từ bảng Summary_Leaderboard của Supabase
+            let resLB = await fetch(SUPA_URL + "Summary_Leaderboard?select=*", {
+                headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY }
+            });
+            let dataLB = await resLB.json();
+
+            let listNhanVien = [];
+            let listQuanLy = [];
+            let allUsersMap = {};
+
+            dataLB.forEach(item => {
+                let nameKey = item["Thông tin Nhân sự"] || item["Thong_tin_Nhan_su"];
+                if (!nameKey) return;
+
+                let roleVal = item["Chuc_danh"] || item["Chức danh"] || "Nhân viên";
+                let userItem = {
+                    name: nameKey,
+                    vung: item["HỌ TÊN QUẢN LÝ TRỰC TIẾP"] || item["Ho_ten_Quan_ly_Truc_tiep"] || "K&G",
+                    diem: Number(item["Tong_Diem"] || item["Tổng điểm"]) || 0,
+                    streak: Number(item["Chuoi_Streak"] || item["Chuỗi Streak"]) || 0
+                };
+
+                if (roleVal === "Quản lý") listQuanLy.push(userItem);
+                else listNhanVien.push(userItem);
+
+                allUsersMap[nameKey] = { name: nameKey, vung: userItem.vung, role: roleVal, thenChot: false, smile: false };
+            });
+
+            listNhanVien.sort((a, b) => b.diem - a.diem);
+            listQuanLy.sort((a, b) => b.diem - a.diem);
+
+            // 2. Tải log chuyên cần của ngày hôm nay từ Supabase để xét Top sớm và Nhắc nhở
+            let today = new Date();
+            let dateStringLog = today.getFullYear() + "-" + ("0" + (today.getMonth() + 1)).slice(-2) + "-" + ("0" + today.getDate()).slice(-2);
+
+            let resCC = await fetch(SUPA_URL + "Data_Ghi_Nhan_Chuyen_Can?select=*&Timestamp=like." + dateStringLog + "*", {
+                headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY }
+            });
+            let dataCC = await resCC.json();
+
+            let earlyBirdsMap = {};
+            dataCC.forEach(row => {
+                let rowTime = row["Timestamp"] || "";
+                let rowName = row["Thong_Tin_Nhan_Su"] || row["Thông tin Nhân sự"];
+                if (!rowName) return;
+
+                let gioNop = rowTime.split(" ")[1] || "";
+                if (!earlyBirdsMap[rowName] || gioNop < earlyBirdsMap[rowName].gioNop) {
+                    earlyBirdsMap[rowName] = { name: rowName, vung: row["Dia_Diem"] || "K&G", gioNop: gioNop };
+                }
+
+                if (allUsersMap[rowName]) {
+                    if (row["Hành_Vi_Then_Chốt"] || row["Hành vi then chốt"]) allUsersMap[rowName].thenChot = true;
+                    if (row["CheckIn_Smile"] || row["Check-in Smile"]) allUsersMap[rowName].smile = true;
+                }
+            });
+
+            let topEarlyBirds = Object.values(earlyBirdsMap);
+            topEarlyBirds.sort((a, b) => a.gioNop.localeCompare(b.gioNop));
+
+            // Lọc danh sách nhắc nhở chưa hoàn thành
+            globalMissList = [];
+            for (let key in allUsersMap) {
+                let u = allUsersMap[key];
+                if (u.role === "Quản lý") {
+                    if (!u.thenChot) globalMissList.push(u);
+                } else {
+                    if (!u.thenChot || !u.smile) globalMissList.push(u);
+                }
             }
-        }).catch(() => { document.getElementById("loadingArea").style.display = "none"; });
+
+            // Đổ dữ liệu ra màn hình
+            document.getElementById("loadingArea").style.display = "none";
+            renderTable(listNhanVien.slice(0, 10), "bodyNV");
+            renderTable(listQuanLy.slice(0, 10), "bodyQL");
+            renderTableEarly(topEarlyBirds.slice(0, 5), "bodyEarly");
+            
+            populateFilter(globalMissList);
+            renderFilteredMiss();
+
+        } catch (err) {
+            document.getElementById("loadingArea").innerText = "❌ Lỗi tải dữ liệu bảng danh vọng!";
+        }
     };
 
     function renderTable(list, elementId) {
@@ -100,6 +174,7 @@
         let vungSet = new Set();
         list.forEach(u => { if(u.vung) vungSet.add(u.vung); });
         let select = document.getElementById("filterVung");
+        select.innerHTML = `<option value="ALL">-- Lọc theo Quản Lý --</option>`;
         Array.from(vungSet).sort().forEach(v => { select.innerHTML += `<option value="${v}">${v}</option>`; });
     }
 
@@ -111,12 +186,8 @@
         if (displayList.length === 0) return tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#10b981; font-weight:bold; padding:20px;">100% team đã hoàn thành nhiệm vụ! 🎉</td></tr>`;
         tbody.innerHTML = "";
         displayList.forEach(user => {
-            // =========================================================================
-            // KAIZEN HIỂN THỊ: Nếu là Quản lý, cột Smile hiện dấu "—" (Không cần làm) thay vì tích đỏ ❌
-            // =========================================================================
             let smileStatus = user.role === "Quản lý" ? `<span style="color:#94a3b8; font-weight:bold;">—</span>` : (user.smile ? "✅" : "❌");
-            
-            tbody.innerHTML += `<tr><td class="text-left"><span class="user-name">${user.name}</span><span class="user-vung">Vùng: ${user.vung} (${user.role})</span></td><td>${user.thenChot ? "✅" : "❌"}</td><td>${smileStatus}</td></tr>`;
+            tbody.innerHTML += `<tr><td class="text-left"><span class="user-name">${user.name}</span><span class="user-vung">QL: ${user.vung} (${user.role})</span></td><td>${user.thenChot ? "✅" : "❌"}</td><td>${smileStatus}</td></tr>`;
         });
     }
 
