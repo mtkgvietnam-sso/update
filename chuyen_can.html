@@ -37,7 +37,6 @@
         .loi-nhan-box { background: #fff5f5; border: 1px solid #feb2b2; padding: 12px; border-radius: 10px; margin-bottom: 10px; }
         .loi-nhan-label { font-size: 13px; font-weight: bold; color: #c53030; margin-bottom: 8px; display: block; }
         .loi-nhan-input { width: 100%; padding: 10px; border: 1px solid #fc8181; border-radius: 8px; font-size: 14px; outline: none; resize: none; font-family: inherit; }
-        .loi-nhan-input:focus { border-color: #e53e3e; box-shadow: 0 0 0 2px rgba(229, 62, 62, 0.2); }
     </style>
 </head>
 <body>
@@ -98,10 +97,7 @@
 
 <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbyWJuCGC272CXjOO48d3kYDsxGKuuFa8ic1xbdrJWZegZSPu-lgy44uyXFnvx-pH10dEQ/exec"; 
-    // =========================================================================
-    // KAIZEN: Cấu hình tải thông tin vai trò và tính chỉ số chuyên cần từ Supabase
-    // =========================================================================
-    const SUPA_URL = "https://https://fxcqspgjawbreihdopph.supabase.co/rest/v1/";
+    const SUPA_URL = "https://fxcqspgjawbreihdopph.supabase.co/rest/v1/";
     const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4Y3FzcGdqYXdicmVpaGRvcHBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2Njc0NDQsImV4cCI6MjA5OTI0MzQ0NH0.rWsrsIY7F3Ae4WlNw4KZfdg6i1AivHTPIvdrVDPT_QE";
     let currentUser = null; 
     let currentUserRole = "Nhân viên"; 
@@ -113,7 +109,6 @@
         currentUser = JSON.parse(savedSession);
         
         try {
-            // 1. Tải thông tin chức danh của tài khoản từ bảng Summary_Leaderboard
             let resLB = await fetch(SUPA_URL + "Summary_Leaderboard?select=*&Thông tin Nhân sự=eq." + encodeURIComponent(currentUser.thongTinNS), {
                 headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY }
             });
@@ -129,7 +124,6 @@
                 document.getElementById("noteLinhHoat").innerText = "💡 Hạn chót: 16h00. Có thể nộp trước 1 nội dung!";
             }
 
-            // 2. Tải lịch sử nộp chuyên cần của cá nhân để tính toán chỉ số
             let resCC = await fetch(SUPA_URL + "Data_Ghi_Nhan_Chuyen_Can?select=*&Thong_Tin_Nhan_Su=eq." + encodeURIComponent(currentUser.thongTinNS) + "&order=Timestamp.desc", {
                 headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY }
             });
