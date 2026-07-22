@@ -317,13 +317,29 @@
         let status = document.getElementById("statusText");
 
         try {
-            // KAIZEN: Tính toán Khung giờ cao điểm
+            // =========================================================
+            // KAIZEN MỚI: Tách khung giờ cao điểm theo Miền Nam / Bắc
+            // =========================================================
             let now = new Date();
             let hh = now.getHours();
             let mm = now.getMinutes();
             let totalMins = hh * 60 + mm;
-            // Cao điểm: 11h30 (690) -> 13h30 (810) HOẶC 17h30 (1050) -> 20h30 (1230)
-            let isGioCaoDiem = (totalMins >= 690 && totalMins <= 810) || (totalMins >= 1050 && totalMins <= 1230);
+            
+            // Lấy Tên Phòng Ban (Cột D) từ dữ liệu user đã đăng nhập
+            let tenPhongBan = (currentUser.diaDiem || "").toLowerCase();
+            
+            // Phân loại Miền (Nếu tên phòng ban có chữ "miền nam" hoặc "mn")
+            let isMienNam = tenPhongBan.includes("miền nam") || tenPhongBan.includes("mn");
+            let isGioCaoDiem = false;
+
+            if (isMienNam) {
+                // MIỀN NAM: Sáng 9h-12h (540 -> 720) | Chiều 18h-21h (1080 -> 1260)
+                isGioCaoDiem = (totalMins >= 540 && totalMins <= 720) || (totalMins >= 1080 && totalMins <= 1260);
+            } else {
+                // MIỀN BẮC (Và các trường hợp còn lại): Sáng 10h-13h (600 -> 780) | Chiều 17h-21h (1020 -> 1260)
+                isGioCaoDiem = (totalMins >= 600 && totalMins <= 780) || (totalMins >= 1020 && totalMins <= 1260);
+            }
+            // =========================================================
 
 
             let thoiLuongVid = "";
@@ -336,21 +352,20 @@
             if(img && currentUserRole !== "Quản lý") {
                 status.innerText = "⏳ Đang xử lý Ảnh Hiện Diện...";
                 img = await compressImageFile(img);
-                idSmile = await uploadSingleFile(img, "Smile", "Tải ảnh"); // Vẫn dùng hậu tố "Smile" để dễ theo dõi log hệ thống cũ
+                idSmile = await uploadSingleFile(img, "Smile", "Tải ảnh"); 
             }
             
             let idV1 = v1 ? `Xác thực máy (${thoiLuongVid})` : "";
             status.innerText = "⏳ Đang đồng bộ máy chủ...";
             document.getElementById("progressBar").style.width = "100%"; document.getElementById("progressPercent").innerText = "Hoàn tất";
 
-            // KAIZEN: Gửi kèm biến gioCaoDiem sang backend
             let logRes = await fetch(API_URL, {
                 method: "POST", body: JSON.stringify({ 
                     action: "chuyen_can", thongTinNhanSu: currentUser.thongTinNS, diaDiemLamViec: currentUser.diaDiem, 
                     fileIdThenChot: idV1, fileIdSmile: idSmile,
                     ngaySuaFile: videoCheckData.ngaySuaFile, dungLuongMB: videoCheckData.dungLuongMB,
                     ketQuaCheck: videoCheckData.ketQuaCheck, luuVetCanhBao: videoCheckData.luuVetCanhBao,
-                    gioCaoDiem: isGioCaoDiem 
+                    gioCaoDiem: isGioCaoDiem // Gửi kết quả Miền Nam/Bắc đã tính toán lên server
                 })
             });
             let logData = await logRes.json(); if(logData.result !== "success") throw new Error(logData.error);
@@ -364,7 +379,6 @@
             
             let trangThaiZalo = [];
             if (videoCheckData.ketQuaCheck === "Cũ") trangThaiZalo.push("⚠️ Nộp bù dữ liệu cũ");
-            // KAIZEN UI: Trạng thái Nộp Muộn/Cao Điểm Zalo
             if (logData.isLateVid) {
                 trangThaiZalo.push("⏰ Video nộp muộn (Không ghi nhận chuỗi)");
             }
