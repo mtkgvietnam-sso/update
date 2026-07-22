@@ -62,8 +62,21 @@
 
             document.getElementById("loadingDataText").style.display = "none";
             document.getElementById("btnLogin").disabled = false;
+            
             let savedSession = localStorage.getItem("userMT");
-            if(savedSession) showPortal(JSON.parse(savedSession));
+            if(savedSession) {
+                let currentUser = JSON.parse(savedSession);
+                
+                // --- BẮT ĐẦU: Logic tự động xóa cache nếu dữ liệu Địa điểm bị thiếu/lỗi ---
+                if (!currentUser.diaDiem || String(currentUser.diaDiem).trim() === "undefined" || String(currentUser.diaDiem).trim() === "") {
+                    localStorage.removeItem("userMT");
+                    alert("Hệ thống đã cập nhật dữ liệu. Vui lòng nhập Mã nhân sự để đăng nhập lại 1 lần duy nhất nhằm đồng bộ Phòng ban!");
+                    // Không gọi showPortal để form đăng nhập tự động hiển thị
+                } else {
+                    showPortal(currentUser); // Cache ngon lành thì cho vào thẳng
+                }
+                // --- KẾT THÚC: Logic tự động xóa cache ---
+            }
         })
         .catch(() => { 
             document.getElementById("loadingDataText").innerText = "❌ Lỗi kết nối máy chủ dữ liệu tốc độ cao!"; 
