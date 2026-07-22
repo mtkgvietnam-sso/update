@@ -56,9 +56,9 @@
         .then(res => res.json())
         .then(data => {
             dbNhanSu = data.map(item => ({
-                thongTinNS: item["Thông tin Nhân sự"] || item["Thong_tin_Nhan_su"],
-                diaDiem: item["ĐỊA ĐIỂM LÀM VIỆC_1"] || item["Dia_diem_lam_viec_1"] || item["Dia_Diem"]
-            })).filter(ns => ns.thongTinNS);
+    thongTinNS: item["Thông tin Nhân sự"] || item["Thong_tin_Nhan_su"],
+    diaDiem: item["Phòng ban"] || item["Phong_ban"] || item["Tên Phòng Ban"] || item["ĐỊA ĐIỂM LÀM VIỆC_1"] || item["Dia_diem_lam_viec_1"] || item["Dia_Diem"]
+})).filter(ns => ns.thongTinNS);
 
             document.getElementById("loadingDataText").style.display = "none";
             document.getElementById("btnLogin").disabled = false;
