@@ -62,7 +62,6 @@
     </div>
     
     <div class="form-group" id="groupSmile">
-        <!-- KAIZEN: Đổi UI sang "Hiện diện điểm bán", giữ nguyên ID bên dưới để không hỏng code cũ -->
         <label>2. Check-in hiện diện điểm bán <span class="label-badge" style="background:#e65c00;">Ảnh Hiện Diện</span></label>
         <input type="file" id="imgSmile" accept="image/*">
     </div>
@@ -97,7 +96,7 @@
 </div>
 
 <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbxWC3XxY5t6a29uhnKykrHPzpX2AViga6XE6OqvuJQ3SjApn4jo2-FAQM13UFYXfmvQbQ/exec"; 
+    const API_URL = "https://script.google.com/macros/s/AKfycbxSydOBfQMht4ICDFUXZ0V5ZGqFSsQEDpkKAwFeQmF2mlP3uwp9nZjweUQjMaPxTXY-eA/exec"; 
     const SUPA_URL = "https://fxcqspgjawbreihdopph.supabase.co/rest/v1/";
     const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4Y3FzcGdqYXdicmVpaGRvcHBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2Njc0NDQsImV4cCI6MjA5OTI0MzQ0NH0.rWsrsIY7F3Ae4WlNw4KZfdg6i1AivHTPIvdrVDPT_QE";
     let currentUser = null; 
@@ -177,7 +176,7 @@
                         let timePart = rawTime.split(" ")[1] || "";
                         let noptGi = [];
                         if (item["Hành_Vi_Then_Chốt"] || item["Hành vi then chốt"]) noptGi.push("Then chốt");
-                        if (item["CheckIn_Smile"] || item["Check-in Smile"]) noptGi.push("Hiện diện"); // KAIZEN UI
+                        if (item["CheckIn_Smile"] || item["Check-in Smile"]) noptGi.push("Hiện diện");
                         let textNoiDung = noptGi.join(" + ") || "Báo cáo";
                         
                         let traceWarn = item["Luu_Vet_Canh_Ba"] || item["Lưu vết cảnh báo"] || "Đạt chuẩn";
@@ -317,31 +316,6 @@
         let status = document.getElementById("statusText");
 
         try {
-            // =========================================================
-            // KAIZEN MỚI: Tách khung giờ cao điểm theo Miền Nam / Bắc
-            // =========================================================
-            let now = new Date();
-            let hh = now.getHours();
-            let mm = now.getMinutes();
-            let totalMins = hh * 60 + mm;
-            
-            // Lấy Tên Phòng Ban (Cột D) từ dữ liệu user đã đăng nhập
-            let tenPhongBan = (currentUser.diaDiem || "").toLowerCase();
-            
-            // Phân loại Miền (Nếu tên phòng ban có chữ "miền nam" hoặc "mn")
-            let isMienNam = tenPhongBan.includes("miền nam") || tenPhongBan.includes("mn");
-            let isGioCaoDiem = false;
-
-            if (isMienNam) {
-                // MIỀN NAM: Sáng 9h-12h (540 -> 720) | Chiều 18h-21h (1080 -> 1260)
-                isGioCaoDiem = (totalMins >= 540 && totalMins <= 720) || (totalMins >= 1080 && totalMins <= 1260);
-            } else {
-                // MIỀN BẮC (Và các trường hợp còn lại): Sáng 10h-13h (600 -> 780) | Chiều 17h-21h (1020 -> 1260)
-                isGioCaoDiem = (totalMins >= 600 && totalMins <= 780) || (totalMins >= 1020 && totalMins <= 1260);
-            }
-            // =========================================================
-
-
             let thoiLuongVid = "";
             if (v1) {
                 status.innerText = "⏳ Đang quét thời lượng video...";
@@ -364,8 +338,7 @@
                     action: "chuyen_can", thongTinNhanSu: currentUser.thongTinNS, diaDiemLamViec: currentUser.diaDiem, 
                     fileIdThenChot: idV1, fileIdSmile: idSmile,
                     ngaySuaFile: videoCheckData.ngaySuaFile, dungLuongMB: videoCheckData.dungLuongMB,
-                    ketQuaCheck: videoCheckData.ketQuaCheck, luuVetCanhBao: videoCheckData.luuVetCanhBao,
-                    gioCaoDiem: isGioCaoDiem // Gửi kết quả Miền Nam/Bắc đã tính toán lên server
+                    ketQuaCheck: videoCheckData.ketQuaCheck, luuVetCanhBao: videoCheckData.luuVetCanhBao
                 })
             });
             let logData = await logRes.json(); if(logData.result !== "success") throw new Error(logData.error);
@@ -379,11 +352,9 @@
             
             let trangThaiZalo = [];
             if (videoCheckData.ketQuaCheck === "Cũ") trangThaiZalo.push("⚠️ Nộp bù dữ liệu cũ");
+            
             if (logData.isLateVid) {
                 trangThaiZalo.push("⏰ Video nộp muộn (Không ghi nhận chuỗi)");
-            }
-            if (img && isGioCaoDiem) {
-                trangThaiZalo.push("🔥 Check-in Giờ Cao Điểm (Ghi nhận)");
             }
             
             if (trangThaiZalo.length === 0) {
