@@ -62,7 +62,8 @@
     </div>
     
     <div class="form-group" id="groupSmile">
-        <label>2. Check-in Smile <span class="label-badge" style="background:#e65c00;">Ảnh Nụ Cười</span></label>
+        <!-- KAIZEN: Đổi UI sang "Hiện diện điểm bán", giữ nguyên ID bên dưới để không hỏng code cũ -->
+        <label>2. Check-in hiện diện điểm bán <span class="label-badge" style="background:#e65c00;">Ảnh Hiện Diện</span></label>
         <input type="file" id="imgSmile" accept="image/*">
     </div>
 
@@ -96,7 +97,7 @@
 </div>
 
 <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbyWJuCGC272CXjOO48d3kYDsxGKuuFa8ic1xbdrJWZegZSPu-lgy44uyXFnvx-pH10dEQ/exec"; 
+    const API_URL = "https://script.google.com/macros/s/AKfycbwrTalk8YeIIdt2WP9AVulaAMpEu0e-ISDVSG122TXh6mIXUBtOnQtdxUN7oqSbUS3giw/exec"; 
     const SUPA_URL = "https://fxcqspgjawbreihdopph.supabase.co/rest/v1/";
     const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4Y3FzcGdqYXdicmVpaGRvcHBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2Njc0NDQsImV4cCI6MjA5OTI0MzQ0NH0.rWsrsIY7F3Ae4WlNw4KZfdg6i1AivHTPIvdrVDPT_QE";
     let currentUser = null; 
@@ -118,11 +119,12 @@
                 currentUserRole = dataLB[0]["Chuc_danh"] || dataLB[0]["Chức danh"] || "Nhân viên";
             }
 
+            // KAIZEN: Cập nhật text thông báo bỏ giới hạn cho ảnh
             if (currentUserRole === "Quản lý") {
                 document.getElementById("groupSmile").style.display = "none";
                 document.getElementById("noteLinhHoat").innerText = "⚠️ Quản lý: Chỉ nộp Video (Hạn chót 10h00)";
             } else {
-                document.getElementById("noteLinhHoat").innerText = "💡 Hạn chót: 16h00. Có thể nộp trước 1 nội dung!";
+                document.getElementById("noteLinhHoat").innerText = "💡 Video then chốt hạn 16h00. Ảnh hiện diện có thể nộp tự do cả ngày!";
             }
 
             // 2. Tải lịch sử nộp chuyên cần của cá nhân
@@ -175,7 +177,7 @@
                         let timePart = rawTime.split(" ")[1] || "";
                         let noptGi = [];
                         if (item["Hành_Vi_Then_Chốt"] || item["Hành vi then chốt"]) noptGi.push("Then chốt");
-                        if (item["CheckIn_Smile"] || item["Check-in Smile"]) noptGi.push("Smile");
+                        if (item["CheckIn_Smile"] || item["Check-in Smile"]) noptGi.push("Hiện diện"); // KAIZEN UI
                         let textNoiDung = noptGi.join(" + ") || "Báo cáo";
                         
                         let traceWarn = item["Luu_Vet_Canh_Ba"] || item["Lưu vết cảnh báo"] || "Đạt chuẩn";
@@ -315,6 +317,15 @@
         let status = document.getElementById("statusText");
 
         try {
+            // KAIZEN: Tính toán Khung giờ cao điểm
+            let now = new Date();
+            let hh = now.getHours();
+            let mm = now.getMinutes();
+            let totalMins = hh * 60 + mm;
+            // Cao điểm: 11h30 (690) -> 13h30 (810) HOẶC 17h30 (1050) -> 20h30 (1230)
+            let isGioCaoDiem = (totalMins >= 690 && totalMins <= 810) || (totalMins >= 1050 && totalMins <= 1230);
+
+
             let thoiLuongVid = "";
             if (v1) {
                 status.innerText = "⏳ Đang quét thời lượng video...";
@@ -323,21 +334,23 @@
 
             let idSmile = "";
             if(img && currentUserRole !== "Quản lý") {
-                status.innerText = "⏳ Đang xử lý Ảnh Nụ Cười...";
+                status.innerText = "⏳ Đang xử lý Ảnh Hiện Diện...";
                 img = await compressImageFile(img);
-                idSmile = await uploadSingleFile(img, "Smile", "Tải ảnh");
+                idSmile = await uploadSingleFile(img, "Smile", "Tải ảnh"); // Vẫn dùng hậu tố "Smile" để dễ theo dõi log hệ thống cũ
             }
             
             let idV1 = v1 ? `Xác thực máy (${thoiLuongVid})` : "";
             status.innerText = "⏳ Đang đồng bộ máy chủ...";
             document.getElementById("progressBar").style.width = "100%"; document.getElementById("progressPercent").innerText = "Hoàn tất";
 
+            // KAIZEN: Gửi kèm biến gioCaoDiem sang backend
             let logRes = await fetch(API_URL, {
                 method: "POST", body: JSON.stringify({ 
                     action: "chuyen_can", thongTinNhanSu: currentUser.thongTinNS, diaDiemLamViec: currentUser.diaDiem, 
                     fileIdThenChot: idV1, fileIdSmile: idSmile,
                     ngaySuaFile: videoCheckData.ngaySuaFile, dungLuongMB: videoCheckData.dungLuongMB,
-                    ketQuaCheck: videoCheckData.ketQuaCheck, luuVetCanhBao: videoCheckData.luuVetCanhBao
+                    ketQuaCheck: videoCheckData.ketQuaCheck, luuVetCanhBao: videoCheckData.luuVetCanhBao,
+                    gioCaoDiem: isGioCaoDiem 
                 })
             });
             let logData = await logRes.json(); if(logData.result !== "success") throw new Error(logData.error);
@@ -345,20 +358,26 @@
             status.innerText = "THÀNH CÔNG!";
             let tList = [];
             if(v1) tList.push("✅ Hành vi then chốt (Video)");
-            if(img && currentUserRole !== "Quản lý") tList.push("📸 Check-in Smile rạng rỡ");
+            if(img && currentUserRole !== "Quản lý") tList.push("📸 Check-in hiện diện điểm bán");
 
             let textPreview = `*☀️ HALLO NGÀY MỚI - FULL NĂNG LƯỢNG ☀️*\n\n• Nhân sự: *${currentUser.thongTinNS}*\n• Đã hoàn thành nội dung chuyên cần:\n  ${tList.join("\n  ")}\n`;
             
             let trangThaiZalo = [];
             if (videoCheckData.ketQuaCheck === "Cũ") trangThaiZalo.push("⚠️ Nộp bù dữ liệu cũ");
-            if (logData.isLate) trangThaiZalo.push("⏰ Nộp muộn (Không ghi nhận chuỗi)");
+            // KAIZEN UI: Trạng thái Nộp Muộn/Cao Điểm Zalo
+            if (logData.isLateVid) {
+                trangThaiZalo.push("⏰ Video nộp muộn (Không ghi nhận chuỗi)");
+            }
+            if (img && isGioCaoDiem) {
+                trangThaiZalo.push("🔥 Check-in Giờ Cao Điểm (Ghi nhận)");
+            }
             
             if (trangThaiZalo.length === 0) {
                 textPreview += `• Trạng thái: ✅ Đúng giờ`;
             } else {
                 textPreview += `• Trạng thái: ${trangThaiZalo.join(" & ")}`;
-                if (logData.isLate) {
-                    textPreview += `\n\n👉 Trễ mất một nhịp rồi! 🐢 Chắc mải đua doanh số quá nên quên giờ đây mà 🤭 Mai nhớ canh giờ chuẩn xác hơn để giữ chuỗi rực cháy nhé! 🔥`;
+                if (logData.isLateVid) {
+                    textPreview += `\n\n👉 Video then chốt bị trễ nhịp rồi! Mai nhớ canh giờ chuẩn xác hơn để giữ chuỗi rực cháy nhé! 🔥`;
                 }
             }
 
@@ -381,7 +400,7 @@
         }
         let finalCopyText = `*☀️ HALLO NGÀY MỚI - FULL NĂNG LƯỢNG ☀️*\n\n• Nhân sự: *${currentUser.thongTinNS}*\n• Đã checkin chuyên cần\n👉 ${loiNhanInput} 🔥`;
         navigator.clipboard.writeText(finalCopyText).then(() => {
-            alert("Đã COPY text báo cáo! Mở Zalo dán vào group và nhớ đính kèm thêm ảnh nụ cười của bạn nhé!");
+            alert("Đã COPY text báo cáo! Mở Zalo dán vào group và nhớ đính kèm thêm ảnh check-in của bạn nhé!");
             window.location.href = "zalo://";
         }).catch(() => alert("Nhấn giữ phần văn bản trong khung để copy."));
     }
