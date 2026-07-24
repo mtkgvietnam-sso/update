@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>THÔNG TIN KHÁCH HÀNG</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f4f6f9; color: #333; padding: 12px; line-height: 1.4; }
+        .container { width: 100%; max-width: 480px; background: #ffffff; margin: 0 auto 15px auto; padding: 20px 16px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        h2 { text-align: center; color: #047857; margin-bottom: 20px; font-size: 18px; font-weight: 800; text-transform: uppercase; }
+        
+        /* Form Styles */
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-size: 13px; font-weight: bold; margin-bottom: 5px; color: #475569; }
+        input, select, textarea { width: 100%; padding: 12px; border: 1px solid #cdd6e2; border-radius: 8px; font-size: 14px; outline: none; }
+        .btn-action { background: #047857; color: white; border: none; padding: 14px; width: 100%; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .btn-back { background: #94a3b8; color: white; border: none; padding: 10px; width: 100%; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer; margin-top: 10px; text-decoration: none; display: block; text-align: center; }
+        
+        /* List & Search Styles */
+        .search-box { margin: 20px 0 15px 0; }
+        .customer-card { background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 8px; margin-bottom: 10px; position: relative; }
+        .customer-card h4 { color: #0f2c59; margin-bottom: 5px; font-size: 15px; }
+        .customer-card p { font-size: 13px; color: #64748b; margin-bottom: 3px; }
+        .btn-edit { position: absolute; top: 12px; right: 12px; background: #f59e0b; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; }
+        .loading { text-align: center; color: #666; font-size: 14px; font-style: italic; display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2 id="formTitle">➕ NHẬP THÔNG TIN KHÁCH HÀNG</h2>
+    
+    <input type="hidden" id="editId" value="">
+    
+    <div class="form-group">
+        <label>Họ và tên KH *</label>
+        <input type="text" id="hoTen" placeholder="Nhập họ tên..." required>
+    </div>
+    <div class="form-group">
+        <label>Giới tính *</label>
+        <select id="gioiTinh">
+            <option value="Nam">Nam</option>
+            <option value="Nữ">Nữ</option>
+            <option value="Khác">Khác</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label>Số điện thoại *</label>
+        <input type="tel" id="sdt" placeholder="Nhập SĐT..." required>
+    </div>
+    <div class="form-group">
+        <label>Địa chỉ / Ghi chú</label>
+        <textarea id="ghiChu" rows="3" placeholder="Nhập địa chỉ hoặc ghi chú thêm..."></textarea>
+    </div>
+    
+    <button class="btn-action" onclick="saveCustomer()" id="btnSave">LƯU THÔNG TIN</button>
+    <a href="index.html" class="btn-back">⬅ Quay lại Menu chính</a>
+</div>
+
+<div class="container">
+    <h2>📋 DANH SÁCH CỦA TÔI</h2>
+    <div class="search-box">
+        <input type="text" id="searchInput" onkeyup="searchCustomer()" placeholder="🔍 Tìm theo Tên hoặc SĐT...">
+    </div>
+    <div id="loadingData" class="loading" style="display:block;">⏳ Đang tải dữ liệu...</div>
+    <div id="customerList">
+        <!-- Dữ liệu render tại đây -->
+    </div>
+</div>
+
+<script>
+    const SUPA_URL = "https://fxcqspgjawbreihdopph.supabase.co/rest/v1/";
+    const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4Y3FzcGdqYXdicmVpaGRvcHBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2Njc0NDQsImV4cCI6MjA5OTI0MzQ0NH0.rWsrsIY7F3Ae4WlNw4KZfdg6i1AivHTPIvdrVDPT_QE";
+    
+    let currentUser = null;
+    let customerData = [];
+
+    // Kiểm tra đăng nhập
+    window.onload = () => {
+        let savedSession = localStorage.getItem("userMT");
+        if(!savedSession) {
+            alert("Vui lòng đăng nhập trước!");
+            window.location.href = "index.html"; // Trả về trang chủ nếu chưa đăng nhập
+            return;
+        }
+        currentUser = JSON.parse(savedSession);
+        loadCustomerData();
+    };
+
+    // Đọc dữ liệu từ Supabase (Chỉ lấy dữ liệu do chính user này nhập)
+    function loadCustomerData() {
+        // Lọc theo ma_ns để đảm bảo quản lý hay người khác không xem được
+        fetch(SUPA_URL + `DataKH?ma_ns=eq.${encodeURIComponent(currentUser.thongTinNS)}&order=created_at.desc`, {
+            headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY }
+        })
+        .then(res => res.json())
+        .then(data => {
+            customerData = data;
+            renderList(customerData);
+            document.getElementById("loadingData").style.display = "none";
+        })
+        .catch(err => {
+            document.getElementById("loadingData").innerText = "❌ Lỗi tải dữ liệu!";
+        });
+    }
+
+    // Hiển thị danh sách
+    function renderList(data) {
+        let listHTML = "";
+        data.forEach(item => {
+            listHTML += `
+                <div class="customer-card">
+                    <h4>👤 ${item.ho_ten}</h4>
+                    <p>📞 <b>SĐT:</b> ${item.sdt} | <b>Giới tính:</b> ${item.gioi_tinh}</p>
+                    <p>📍 <b>Ghi chú:</b> ${item.ghi_chu || 'Không có'}</p>
+                    <button class="btn-edit" onclick="editCustomer('${item.id}', '${item.ho_ten}', '${item.gioi_tinh}', '${item.sdt}', '${item.ghi_chu}')">Sửa</button>
+                </div>
+            `;
+        });
+        if(data.length === 0) listHTML = "<p style='text-align:center; color:#94a3b8; font-size:13px;'>Chưa có dữ liệu khách hàng nào.</p>";
+        document.getElementById("customerList").innerHTML = listHTML;
+    }
+
+    // Tìm kiếm (Lọc trực tiếp trên mảng đã tải)
+    function searchCustomer() {
+        let keyword = document.getElementById("searchInput").value.toLowerCase();
+        let filtered = customerData.filter(item => 
+            item.ho_ten.toLowerCase().includes(keyword) || 
+            item.sdt.includes(keyword)
+        );
+        renderList(filtered);
+    }
+
+    // Đẩy dữ liệu lên form để sửa
+    function editCustomer(id, hoTen, gioiTinh, sdt, ghiChu) {
+        document.getElementById("editId").value = id;
+        document.getElementById("hoTen").value = hoTen;
+        document.getElementById("gioiTinh").value = gioiTinh;
+        document.getElementById("sdt").value = sdt;
+        document.getElementById("ghiChu").value = ghiChu !== 'null' ? ghiChu : '';
+        
+        document.getElementById("formTitle").innerText = "✏️ CẬP NHẬT THÔNG TIN KHÁCH HÀNG";
+        document.getElementById("btnSave").innerText = "LƯU CẬP NHẬT";
+        document.getElementById("btnSave").style.background = "#f59e0b";
+        window.scrollTo(0, 0); // Cuộn lên đầu trang
+    }
+
+    // Lưu mới hoặc Cập nhật
+    // Lưu mới hoặc Cập nhật
+function saveCustomer() {
+    let id = document.getElementById("editId").value;
+    let hoTen = document.getElementById("hoTen").value.trim();
+    let sdt = document.getElementById("sdt").value.trim();
+    let gioiTinh = document.getElementById("gioiTinh").value;
+    let ghiChu = document.getElementById("ghiChu").value.trim();
+
+    if(!hoTen || !sdt) {
+        alert("Vui lòng điền đầy đủ Họ tên và Số điện thoại!");
+        return;
+    }
+
+    // KIỂM TRA SỐ ĐIỆN THOẠI (Bắt buộc đúng 10 số, chỉ chứa số)
+    let phoneRegex = /^\d{10}$/;
+    if (!phoneRegex.test(sdt)) {
+        alert("⚠️ Lỗi: Số điện thoại không hợp lệ!\nVui lòng nhập đúng 10 chữ số (không thừa, không thiếu, không chứa chữ cái).");
+        return;
+    }
+
+    document.getElementById("btnSave").innerText = "⏳ ĐANG LƯU...";
+    document.getElementById("btnSave").disabled = true;
+
+    let payload = {
+        ma_ns: currentUser.thongTinNS,
+        ho_ten: hoTen,
+        gioi_tinh: gioiTinh,
+        sdt: sdt,
+        ghi_chu: ghiChu
+    };
+
+    let method = id ? "PATCH" : "POST";
+    let url = SUPA_URL + "DataKH" + (id ? `?id=eq.${id}` : "");
+
+    fetch(url, {
+        method: method,
+        headers: { 
+            "apikey": SUPA_KEY, 
+            "Authorization": "Bearer " + SUPA_KEY,
+            "Content-Type": "application/json",
+            "Prefer": "return=representation"
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(res => {
+        if(res.ok) {
+            alert(id ? "✅ Cập nhật thành công!" : "✅ Đã lưu khách hàng mới!");
+            
+            // XỬ LÝ ĐÁNH DẤU "SỬA" CHO GOOGLE SHEET LOG
+            // Tạo một bản sao của dữ liệu để không làm ảnh hưởng đến Supabase
+            let sheetPayload = { ...payload };
+            if (id) {
+                // Nếu là thao tác Cập nhật, gắn thêm nhãn [CẬP NHẬT] vào ghi chú
+                sheetPayload.ghi_chu = "[CẬP NHẬT] " + (sheetPayload.ghi_chu || "");
+            }
+            
+            // Gọi App Script để đồng bộ
+            syncToGoogleSheet(sheetPayload);
+            
+            resetForm();
+            loadCustomerData(); // Tải lại danh sách
+        } else {
+            alert("❌ Có lỗi xảy ra khi lưu vào Database!");
+        }
+    })
+    .finally(() => {
+        document.getElementById("btnSave").disabled = false;
+    });
+}
+
+    function resetForm() {
+        document.getElementById("editId").value = "";
+        document.getElementById("hoTen").value = "";
+        document.getElementById("sdt").value = "";
+        document.getElementById("ghiChu").value = "";
+        document.getElementById("formTitle").innerText = "➕ NHẬP THÔNG TIN KHÁCH HÀNG";
+        document.getElementById("btnSave").innerText = "LƯU THÔNG TIN";
+        document.getElementById("btnSave").style.background = "#047857";
+    }
+
+    // Hàm gọi về App Script để lưu backup ra Google Sheet (Tuỳ chọn)
+    function syncToGoogleSheet(data) {
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbymOoeYL_qZRb32fCufTlUl-TqX8oyC1IF-Y6-pZR4qFigQz2uvSBlXfIPQ3wXT0ei5mw/exec"; // ĐIỀN URL CỦA DOPOST VÀO ĐÂY
+        fetch(SCRIPT_URL, {
+            method: "POST",
+            body: JSON.stringify({
+                action: "luu_khach_hang",
+                data: data
+            })
+        }).catch(err => console.log("Lỗi đồng bộ Sheet:", err));
+    }
+</script>
+
+</body>
+</html>
