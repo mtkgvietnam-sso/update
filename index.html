@@ -22,6 +22,7 @@
         .btn-leaderboard { background: linear-gradient(135deg, #111827, #374151); }
         .btn-logout { background: transparent; color: #d9383a; border: 1px solid #d9383a; padding: 12px; width: 100%; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer; margin-top: 20px; }
         .loading { text-align: center; color: #666; font-size: 14px; font-style: italic; display: none; margin-top: 12px; }
+        .btn-khachhang { background: linear-gradient(135deg, #10b981, #047857); } /* Màu xanh ngọc */
     </style>
 </head>
 <body>
@@ -39,6 +40,8 @@
         <a href="tung_bill.html" class="btn-menu btn-tungbill">🚀 CUỘC CHIẾN TUNG BILL</a>
         <a href="chuyen_can.html" class="btn-menu btn-chuyencan">📹 BÁO CÁO CHUYÊN CẦN</a>
         <a href="leaderboard.html" class="btn-menu btn-leaderboard">🏆 BẢNG VÀNG VINH DANH</a>
+        <a href="thong_tin_kh.html" class="btn-menu btn-khachhang">👥 THÔNG TIN KHÁCH HÀNG</a>
+        
     </div>
     <button class="btn-logout" onclick="logout()">Đăng xuất tài khoản</button>
 </div>
@@ -56,27 +59,14 @@
         .then(res => res.json())
         .then(data => {
             dbNhanSu = data.map(item => ({
-    thongTinNS: item["Thông tin Nhân sự"] || item["Thong_tin_Nhan_su"],
-    diaDiem: item["Phòng ban"] || item["Phong_ban"] || item["TÊN PHÒNG BAN"] || item["ĐỊA ĐIỂM LÀM VIỆC_1"] || item["Dia_diem_lam_viec_1"] || item["Dia_Diem"]
-})).filter(ns => ns.thongTinNS);
+                thongTinNS: item["Thông tin Nhân sự"] || item["Thong_tin_Nhan_su"],
+                diaDiem: item["ĐỊA ĐIỂM LÀM VIỆC_1"] || item["TÊN PHÒNG BAN"] || item["Dia_diem_lam_viec_1"] || item["Dia_diem"]
+            })).filter(ns => ns.thongTinNS);
 
             document.getElementById("loadingDataText").style.display = "none";
             document.getElementById("btnLogin").disabled = false;
-            
             let savedSession = localStorage.getItem("userMT");
-            if(savedSession) {
-                let currentUser = JSON.parse(savedSession);
-                
-                // --- BẮT ĐẦU: Logic tự động xóa cache nếu dữ liệu Địa điểm bị thiếu/lỗi ---
-                if (!currentUser.diaDiem || String(currentUser.diaDiem).trim() === "undefined" || String(currentUser.diaDiem).trim() === "") {
-                    localStorage.removeItem("userMT");
-                    alert("Hệ thống đã cập nhật dữ liệu. Vui lòng nhập Mã nhân sự để đăng nhập lại 1 lần duy nhất nhằm đồng bộ Phòng ban!");
-                    // Không gọi showPortal để form đăng nhập tự động hiển thị
-                } else {
-                    showPortal(currentUser); // Cache ngon lành thì cho vào thẳng
-                }
-                // --- KẾT THÚC: Logic tự động xóa cache ---
-            }
+            if(savedSession) showPortal(JSON.parse(savedSession));
         })
         .catch(() => { 
             document.getElementById("loadingDataText").innerText = "❌ Lỗi kết nối máy chủ dữ liệu tốc độ cao!"; 
