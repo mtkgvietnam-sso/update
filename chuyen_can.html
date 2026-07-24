@@ -96,7 +96,7 @@
 </div>
 
 <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbzQnOxd--oW0K9QK1kZ6cZVrv22S6peZNABF7yukXBNSjkSUVs3KoEpbQMguCgeWezPHA/exec"; 
+    const API_URL = "https://script.google.com/macros/s/AKfycbzomfNpiB7TN7-fxfQwvk4OwsabXZMp6yphBqwOtegZlcdC6IF8af8ebw8F6m3xlRfSUw/exec"; 
     const SUPA_URL = "https://fxcqspgjawbreihdopph.supabase.co/rest/v1/";
     const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4Y3FzcGdqYXdicmVpaGRvcHBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2Njc0NDQsImV4cCI6MjA5OTI0MzQ0NH0.rWsrsIY7F3Ae4WlNw4KZfdg6i1AivHTPIvdrVDPT_QE";
     let currentUser = null; 
@@ -316,6 +316,33 @@
         let status = document.getElementById("statusText");
 
         try {
+            // =========================================================
+            // TÍNH TOÁN KHUNG GIỜ CAO ĐIỂM (MIỀN NAM VÀ BẮC)
+            // =========================================================
+            let now = new Date();
+            let hh = now.getHours();
+            let mm = now.getMinutes();
+            let totalMins = hh * 60 + mm; // Quy đổi ra tổng số phút để tính cho chuẩn xác
+            
+            let tenPhongBan = (currentUser.diaDiem || "").toLowerCase();
+            let isMienNam = tenPhongBan.includes("miền nam") || tenPhongBan.includes("mn");
+            let isGioCaoDiem = false;
+
+            if (isMienNam) {
+                // MIỀN NAM: Sáng 9h-12h (540 -> 720) | Chiều 18h-21h (1080 -> 1260)
+                isGioCaoDiem = (totalMins >= 540 && totalMins <= 720) || (totalMins >= 1080 && totalMins <= 1260);
+            } else {
+                // MIỀN BẮC: Sáng 9h-12h (540 -> 720) | Chiều 16h-21h (960 -> 1260)
+                isGioCaoDiem = (totalMins >= 540 && totalMins <= 720) || (totalMins >= 960 && totalMins <= 1260);
+            }
+            
+            // Nếu có ảnh hiện diện, quyết định text truyền về DB
+            let textCaoDiem = "";
+            if (img) {
+                textCaoDiem = isGioCaoDiem ? "Đạt" : "Trượt";
+            }
+            // =========================================================
+
             let thoiLuongVid = "";
             if (v1) {
                 status.innerText = "⏳ Đang quét thời lượng video...";
@@ -333,12 +360,14 @@
             status.innerText = "⏳ Đang đồng bộ máy chủ...";
             document.getElementById("progressBar").style.width = "100%"; document.getElementById("progressPercent").innerText = "Hoàn tất";
 
+            // Gửi text Đạt/Trượt qua thuộc tính gioCaoDiem
             let logRes = await fetch(API_URL, {
                 method: "POST", body: JSON.stringify({ 
                     action: "chuyen_can", thongTinNhanSu: currentUser.thongTinNS, diaDiemLamViec: currentUser.diaDiem, 
                     fileIdThenChot: idV1, fileIdSmile: idSmile,
                     ngaySuaFile: videoCheckData.ngaySuaFile, dungLuongMB: videoCheckData.dungLuongMB,
-                    ketQuaCheck: videoCheckData.ketQuaCheck, luuVetCanhBao: videoCheckData.luuVetCanhBao
+                    ketQuaCheck: videoCheckData.ketQuaCheck, luuVetCanhBao: videoCheckData.luuVetCanhBao,
+                    gioCaoDiem: textCaoDiem 
                 })
             });
             let logData = await logRes.json(); if(logData.result !== "success") throw new Error(logData.error);
@@ -354,11 +383,20 @@
             if (videoCheckData.ketQuaCheck === "Cũ") trangThaiZalo.push("⚠️ Nộp bù dữ liệu cũ");
             
             if (logData.isLateVid) {
-                trangThaiZalo.push("⏰ Video nộp muộn (Không ghi nhận chuỗi)");
+                trangThaiZalo.push("⏰ Video nộp muộn (Không ghi chuỗi)");
+            }
+            
+            // Thêm cảnh báo Zalo cho phần ảnh
+            if (img && currentUserRole !== "Quản lý") {
+                if (isGioCaoDiem) {
+                    trangThaiZalo.push("🔥 Check-in Giờ Cao Điểm");
+                } else {
+                    trangThaiZalo.push("⚠️ Trượt giờ Cao điểm");
+                }
             }
             
             if (trangThaiZalo.length === 0) {
-                textPreview += `• Trạng thái: ✅ Đúng giờ`;
+                textPreview += `• Trạng thái: ✅ Hợp lệ`;
             } else {
                 textPreview += `• Trạng thái: ${trangThaiZalo.join(" & ")}`;
                 if (logData.isLateVid) {
