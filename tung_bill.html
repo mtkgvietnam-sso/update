@@ -20,7 +20,6 @@
         .success-card h3 { color: #10b981; font-size: 22px; margin-bottom: 12px; }
         .preview-box { background: #f8fafc; border: 1px dashed #cbd5e1; padding: 14px; border-radius: 10px; text-align: left; font-size: 14px; white-space: pre-line; margin: 18px 0; color: #334155; }
         .btn-zalo { background: #0068ff; color: white; border: none; padding: 16px; font-size: 16px; font-weight: bold; border-radius: 12px; width: 100%; }
-        .loading { text-align: center; color: #666; font-size: 14px; font-style: italic; display: none; margin-top: 12px; }
         .progress-wrapper { width: 100%; background-color: #e2e8f0; border-radius: 10px; margin-top: 15px; display: none; overflow: hidden; position: relative; }
         .progress-bar { height: 20px; background: linear-gradient(90deg, #10b981, #34d399); width: 0%; transition: width 0.2s; }
         .progress-percent { position: absolute; width: 100%; text-align: center; top: 1px; font-size: 12px; font-weight: bold; color: #0f2c59; }
@@ -33,7 +32,7 @@
     <button class="btn-home" onclick="window.location.href='chuyen_can.html'">-> Tới Báo cáo Chuyên cần</button>
     <form id="dynamicForm" autocomplete="off">
         <div id="dynamicQuestionsArea"></div>
-        <button type="submit" class="btn-submit" id="btnSubmit" disabled>⏳ Đang nạp cấu trúc Form từ bộ đệm...</button>
+        <button type="submit" class="btn-submit" id="btnSubmit" disabled>⏳ Đang tải bộ đệm...</button>
         <div class="progress-wrapper" id="progressWrap"><div class="progress-bar" id="progressBar"></div><div class="progress-percent" id="progressPercent">0%</div></div>
         <p class="status-text" id="statusText"></p>
     </form>
@@ -48,7 +47,7 @@
     </div>
 </div>
 <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbwbCHuuzgacm-Xkalf06nrJpEaGvuWzn7hE3Qml_IRzrcWFJeP7wKLrWo2v6Pmkrhrn/exec"; 
+    const API_URL = "https://script.google.com/macros/s/AKfycbwYTOgJ4l3FbtU3Hl4FPAyTl_IbyRWcazEu6gSWdJL-osSBgjRPufDu4l3i49Trxpi0/exec"; 
     const SUPA_URL = "https://fxcqspgjawbreihdopph.supabase.co/rest/v1/";
     const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4Y3FzcGdqYXdicmVpaGRvcHBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2Njc0NDQsImV4cCI6MjA5OTI0MzQ0NH0.rWsrsIY7F3Ae4WlNw4KZfdg6i1AivHTPIvdrVDPT_QE";
     let currentUser = null;
@@ -81,12 +80,9 @@
 
         try {
             let [resDD, resCH] = await Promise.all([
-                fetchWithRetry(SUPA_URL + "Danh_Muc_Dia_Diem?select=*", { headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY } }),
-                fetchWithRetry(SUPA_URL + "Cau_Hoi_Form?select=*", { headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY } })
+                fetch(SUPA_URL + "Danh_Muc_Dia_Diem?select=*", { headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY } }),
+                fetch(SUPA_URL + "Cau_Hoi_Form?select=*", { headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY } })
             ]);
-
-            if (!resDD.ok) throw new Error("Bảng Địa điểm lỗi");
-            if (!resCH.ok) throw new Error("Bảng Câu hỏi lỗi");
 
             let dataDD = await resDD.json();
             let dataCH = await resCH.json();
@@ -94,7 +90,7 @@
             if (dataDD && dataDD.length > 0) {
                 let dlHTML = `<datalist id="listDiaDiem">`;
                 dataDD.forEach(dd => {
-                    let textDD = dd["Tên địa điểm"] || dd["Ten_dia_diem"] || dd["Tên địa điểm bán hàng"];
+                    let textDD = dd["Tên địa điểm"] || dd["Ten_dia_diem"];
                     if (textDD) dlHTML += `<option value="${textDD.toString().trim()}">`;
                 });
                 dlHTML += `</datalist>`;
@@ -104,8 +100,6 @@
             let area = document.getElementById("dynamicQuestionsArea");
             area.innerHTML = "";
             
-            if (!dataCH || dataCH.length === 0) throw new Error("Không có câu hỏi");
-
             dataCH.forEach(ch => {
                 let tieuDe = ch["Tiêu đề câu hỏi"] || ch["Tieu_de_cau_hoi"] || ch["tieu_de"];
                 let loai = ch["Loại câu hỏi"] || ch["Loai_cau_hoi"] || ch["loai"];
@@ -116,7 +110,7 @@
 
                 let block = `<div class="form-group"><label>${tieuDe}</label>`;
                 if (tieuDe.toLowerCase().includes("địa điểm làm việc")) {
-                    block += `<input type="text" data-title="${tieuDe}" required placeholder="Gõ từ khóa để tìm địa điểm..." list="listDiaDiem" autocomplete="off">`;
+                    block += `<input type="text" data-title="${tieuDe}" required placeholder="Gõ từ khóa tìm điểm bán..." list="listDiaDiem" autocomplete="off">`;
                 }
                 else if(loai === "text") block += `<input type="text" data-title="${tieuDe}" required placeholder="Nhập câu trả lời...">`;
                 else if(loai === "textarea") block += `<textarea data-title="${tieuDe}" rows="3" required placeholder="Nhập nội dung..."></textarea>`;
@@ -134,33 +128,12 @@
             let btnSubmit = document.getElementById("btnSubmit");
             btnSubmit.disabled = false;
             btnSubmit.innerText = "GỬI THÔNG TIN";
-
         } catch (error) {
-            alert("Lỗi kết nối bộ đệm:\n" + error.message); 
-            document.getElementById("btnSubmit").innerText = "❌ Lỗi kết nối dữ liệu";
+            alert("Lỗi kết nối bộ đệm dữ liệu!");
         }
     };
 
-    document.getElementById("dynamicQuestionsArea").addEventListener("change", function(e) {
-        let title = e.target.getAttribute("data-title");
-        if(e.target.tagName === "SELECT" && title && (title.includes("Trải nghiệm") || title.includes("Tình huống"))) {
-            let selectedValue = e.target.value;
-            let fileInput = document.getElementById("fileAnhDong");
-            if(fileInput) {
-                let nonRequireValues = ["Chạm - Thử", "Chạm chưa mua"];
-                let fileLabel = fileInput.parentElement.querySelector("label");
-                if(selectedValue !== "" && !nonRequireValues.includes(selectedValue)) {
-                    fileInput.required = true; 
-                    fileLabel.innerHTML = fileInput.getAttribute("data-title") + ' <span style="color:#d9383a; font-weight:bold;">(*) Bắt buộc</span>';
-                } else {
-                    fileInput.required = false;
-                    fileLabel.innerHTML = fileInput.getAttribute("data-title");
-                }
-            }
-        }
-    });
-
-    // HÀM TẢI FILE CHUNK 1MB TRỰC TIẾP LÊN DRIVE (CHỐNG NGHẼN, SIÊU NHANH)
+    // HÀM UPLOAD ẢNH CHUNK TỪNG PHẦN LÊN GOOGLE DRIVE (GIỐNG BÊN CHUYÊN CẦN)
     async function uploadSingleFile(file, prefixName) {
         if(!file) return ""; 
         let status = document.getElementById("statusText");
@@ -191,7 +164,7 @@
             let chunk = file.slice(startByte, endByte);
             const percent = Math.round((endByte / fileSize) * 100);
             
-            status.innerText = `Đang tải ảnh lên Drive... ${percent}%`;
+            status.innerText = `Đang tải ảnh hóa đơn lên Drive... ${percent}%`;
             pBar.style.width = percent + "%"; 
             pPercent.innerText = percent + "%";
 
@@ -225,8 +198,6 @@
     document.getElementById("dynamicForm").addEventListener("submit", async function(e) {
         e.preventDefault();
         let inputs = document.getElementById("dynamicQuestionsArea").querySelectorAll("input, select, textarea");
-        if(inputs.length === 0) return alert("Hệ thống chưa đồng bộ xong cấu trúc!");
-
         document.getElementById("btnSubmit").disabled = true;
         document.getElementById("progressWrap").style.display = "block";
         let status = document.getElementById("statusText");
@@ -235,7 +206,7 @@
             let fileAnh = document.getElementById("fileAnhDong");
             let fileUrl = "";
             if (fileAnh && fileAnh.files[0]) {
-                status.innerText = "⏳ Đang đẩy ảnh ngầm lên Google Drive...";
+                status.innerText = "⏳ Đang đẩy ảnh hóa đơn lên Drive...";
                 fileUrl = await uploadSingleFile(fileAnh.files[0], "TungBill_HD");
             }
 
@@ -247,8 +218,8 @@
             inputs.forEach(input => {
                 let tieuDeCH = input.getAttribute("data-title");
                 let val = input.value;
-                if(input.type === "file") { 
-                    cauHoiDongData[tieuDeCH] = fileUrl; 
+                if(input.type === "file") {
+                    cauHoiDongData[tieuDeCH] = fileUrl;
                 } else {
                     cauHoiDongData[tieuDeCH] = val;
                     if (input.type === "number" && val !== "") textZalo += `• ${tieuDeCH}: ${Number(val).toLocaleString('de-DE')}\n`;
@@ -260,7 +231,7 @@
                 action: "tung_bill", 
                 thongTinNhanSu: currentUser.thongTinNS, 
                 diaDiemLamViec: currentUser.diaDiem, 
-                fileUrl: fileUrl, 
+                fileUrl: fileUrl,
                 cauHoiDong: cauHoiDongData 
             };
 
@@ -282,6 +253,11 @@
         }
     });
 
+    function resetBtn() { 
+        document.getElementById("btnSubmit").disabled = false; 
+        document.getElementById("loadingText").style.display = "none"; 
+    }
+    
     function copyAndOpenZalo() {
         navigator.clipboard.writeText(document.getElementById("shareContent").innerText).then(() => {
             alert("Đã COPY văn bản báo cáo! Bạn dán trực tiếp vào Zalo."); window.location.href = "zalo://";
