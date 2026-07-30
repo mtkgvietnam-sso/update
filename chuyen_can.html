@@ -41,7 +41,7 @@
 </head>
 <body>
 <div class="container" id="formContainer">
-    <h2>📹 BÁO CÁO CHUYÊN CẦN</h2>
+    <h2>📹 BÁO CÁO CHUYÊN CẦN 🚀</h2>
     <button class="btn-home" onclick="window.location.href='leaderboard.html'">-> Tới Bảng vàng Vinh danh</button>
 
     <div class="history-box">
@@ -96,12 +96,41 @@
 </div>
 
 <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbzFzl7eHgAnRHFwSvMRvCp71XpSVu3z9dfb4B7Y2x16KopeuPf6M-YSSDEnZQh_TvLzqA/exec"; 
+    const API_URL = "https://script.google.com/macros/s/AKfycbzm-TXgqEKml2B_QorAuZQEvJ9grHbQe8fBsx69xOj1lw99ybxdG0AVg4dmFk91F2V1/exec"; 
     const SUPA_URL = "https://fxcqspgjawbreihdopph.supabase.co/rest/v1/";
     const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4Y3FzcGdqYXdicmVpaGRvcHBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2Njc0NDQsImV4cCI6MjA5OTI0MzQ0NH0.rWsrsIY7F3Ae4WlNw4KZfdg6i1AivHTPIvdrVDPT_QE";
     let currentUser = null; 
     let currentUserRole = "Nhân viên"; 
     let videoCheckData = { ngaySuaFile: "", dungLuongMB: 0, ketQuaCheck: "Hợp lệ", luuVetCanhBao: "Đạt chuẩn" };
+
+    async function fetchWithRetry(url, options = {}, maxRetries = 4, delayMs = 1500) {
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                let fetchUrl = url;
+                if (url.includes("script.google.com")) {
+                    let separator = url.includes("?") ? "&" : "?";
+                    fetchUrl = url + separator + "t=" + new Date().getTime();
+                }
+
+                let res = await fetch(fetchUrl, options);
+                if ([500, 502, 503, 504, 429].includes(res.status) && attempt < maxRetries) {
+                    await new Promise(r => setTimeout(r, delayMs * attempt));
+                    continue;
+                }
+                return res;
+            } catch (err) {
+                if (attempt >= maxRetries) {
+                    if (err.message.includes("Load failed") || err.message.includes("Failed to fetch")) {
+                        throw new Error("Mạng bị ngắt đột ngột. Hãy giữ màn hình sáng và bấm LƯU lại nhé!");
+                    }
+                    throw err;
+                }
+                let statusEl = document.getElementById("statusText");
+                if (statusEl) statusEl.innerText = `⏳ Hệ thống chậm phản hồi, đang kết nối lại (Lần ${attempt}/${maxRetries})...`;
+                await new Promise(r => setTimeout(r, delayMs * attempt));
+            }
+        }
+    }
 
     window.onload = async () => {
         let savedSession = localStorage.getItem("userMT");
@@ -109,8 +138,7 @@
         currentUser = JSON.parse(savedSession);
         
         try {
-            // 1. Tải thông tin chức danh của tài khoản
-            let resLB = await fetch(SUPA_URL + "Summary_Leaderboard?select=*&Thông tin Nhân sự=eq." + encodeURIComponent(currentUser.thongTinNS), {
+            let resLB = await fetchWithRetry(SUPA_URL + "Summary_Leaderboard?select=*&Thông tin Nhân sự=eq." + encodeURIComponent(currentUser.thongTinNS), {
                 headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY }
             });
             let dataLB = await resLB.json();
@@ -118,7 +146,6 @@
                 currentUserRole = dataLB[0]["Chuc_danh"] || dataLB[0]["Chức danh"] || "Nhân viên";
             }
 
-            // KAIZEN: Cập nhật text thông báo bỏ giới hạn cho ảnh
             if (currentUserRole === "Quản lý") {
                 document.getElementById("groupSmile").style.display = "none";
                 document.getElementById("noteLinhHoat").innerText = "⚠️ Quản lý: Chỉ nộp Video (Hạn chót 10h00)";
@@ -126,26 +153,21 @@
                 document.getElementById("noteLinhHoat").innerText = "💡 Video then chốt hạn 16h00. Ảnh hiện diện tại giờ cao điểm!";
             }
 
-            // 2. Tải lịch sử nộp chuyên cần của cá nhân
-            let resCC = await fetch(SUPA_URL + "Data_Ghi_Nhan_Chuyen_Can?select=*&Thong_Tin_Nhan_Su=eq." + encodeURIComponent(currentUser.thongTinNS) + "&order=Timestamp.desc", {
+            let resCC = await fetchWithRetry(SUPA_URL + "Data_Ghi_Nhan_Chuyen_Can?select=*&Thong_Tin_Nhan_Su=eq." + encodeURIComponent(currentUser.thongTinNS) + "&order=Timestamp.desc", {
                 headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY }
             });
             let dataCC = await resCC.json();
             document.getElementById("loadingHistory").style.display = "none";
 
             let statDay = 0, statWeek = 0, statMonth = 0;
-            
-            // XỬ LÝ CHUẨN MÚI GIỜ HỆ THỐNG ĐỂ TÍNH ĐỘC LẬP
             let today = new Date();
             let startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
-            
             let startOfWeek = new Date(today); 
             let dayOfWeek = today.getDay();
-            let distance = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Quy về thứ 2 đầu tuần
+            let distance = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
             startOfWeek.setDate(today.getDate() + distance);
             startOfWeek.setHours(0,0,0,0);
             let startOfWeekTime = startOfWeek.getTime();
-            
             let startOfMonthTime = new Date(today.getFullYear(), today.getMonth(), 1).getTime();
 
             let list = document.getElementById("historyList");
@@ -155,18 +177,14 @@
                 dataCC.forEach((item, idx) => {
                     let rawTime = item["Timestamp"] || "";
                     if (!rawTime) return;
-                    
-                    // Bóc tách chuẩn chuỗi ISO sang đối tượng Date an toàn
                     let cleanTimeStr = rawTime.replace(" ", "T").split("+")[0];
                     let rowDate = new Date(cleanTimeStr);
                     if (isNaN(rowDate.getTime())) {
-                        // Dự phòng nếu chuỗi là dd-MM-yyyy
                         let p = rawTime.split(" ")[0].split("-");
                         rowDate = new Date(p[0], p[1]-1, p[2]);
                     }
                     let rowTimeMs = rowDate.getTime();
 
-                    // Thống kê chuẩn xác theo mili-giây
                     if (rowTimeMs >= startOfToday) statDay++;
                     if (rowTimeMs >= startOfWeekTime) statWeek++;
                     if (rowTimeMs >= startOfMonthTime) statMonth++;
@@ -178,21 +196,17 @@
                         if (item["Hành_Vi_Then_Chốt"] || item["Hành vi then chốt"]) noptGi.push("Then chốt");
                         if (item["CheckIn_Smile"] || item["Check-in Smile"]) noptGi.push("Hiện diện");
                         let textNoiDung = noptGi.join(" + ") || "Báo cáo";
-                        
                         let traceWarn = item["Luu_Vet_Canh_Ba"] || item["Lưu vết cảnh báo"] || "Đạt chuẩn";
                         let badge = traceWarn !== "Nộp bù" ? `<span class="badge-ok">Đạt</span>` : `<span class="badge-ok" style="background:#f59e0b;">Nộp bù</span>`;
-                        
                         list.innerHTML += `<li><div style="display:flex; justify-content:space-between; margin-bottom:3px;"><span>🗓️ ${datePart} (${timePart})</span> ${badge}</div><div style="font-weight:bold; color:#0f2c59;">📁 Đã nộp: ${textNoiDung}</div></li>`;
                     }
                 });
-
                 document.getElementById("statDay").innerText = statDay;
                 document.getElementById("statWeek").innerText = statWeek;
                 document.getElementById("statMonth").innerText = statMonth;
             } else {
                 list.innerHTML = `<li><i style="color:#9ca3af;">Chưa có dữ liệu...</i></li>`;
             }
-
         } catch (error) {
             document.getElementById("loadingHistory").innerText = "⚠️ Lỗi đồng bộ lịch sử nhanh!";
         }
@@ -276,35 +290,92 @@
         }
     }
 
+    // =========================================================
+    // HÀM TẢI FILE TỐC ĐỘ CÂN BẰNG (CHUNK 1MB KHÔNG NGHẼN LOCK)
+    // =========================================================
     async function uploadSingleFile(file, prefixName, progressMsg) {
         if(!file) return ""; 
-        let status = document.getElementById("statusText"), pBar = document.getElementById("progressBar"), pPercent = document.getElementById("progressPercent");
+        let status = document.getElementById("statusText");
+        let pBar = document.getElementById("progressBar");
+        let pPercent = document.getElementById("progressPercent");
+        
+        const fileSize = Math.floor(file.size);
+        if (fileSize === 0) throw new Error("File bị rỗng (0 KB). Vui lòng chọn file khác!");
+
         let fileExt = file.name.substring(file.name.lastIndexOf("."));
         let d = new Date(), ts = d.getFullYear() + ("0"+(d.getMonth()+1)).slice(-2) + ("0"+d.getDate()).slice(-2) + "_" + ("0"+d.getHours()).slice(-2) + ("0"+d.getMinutes()).slice(-2);
         let safeFileName = currentUser.thongTinNS + "_" + prefixName + "_" + ts + fileExt;
 
-        status.innerText = `[${progressMsg}] Khởi tạo...`;
-        let initRes = await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "init_upload", fileName: safeFileName, mimeType: file.type }) });
-        let initData = await initRes.json(); if(initData.result !== "success") throw new Error(initData.error);
+        status.innerText = `[${progressMsg}] Đang kết nối đường truyền...`;
         
-        let uploadUrl = initData.uploadUrl, chunkSize = 1024 * 1024 * 7, startByte = 0, finalId = "";
+        let initRes = await fetchWithRetry(API_URL, { 
+            method: "POST", 
+            body: JSON.stringify({ action: "init_upload", fileName: safeFileName, mimeType: file.type }) 
+        });
+        let initData = await initRes.json(); 
+        if(initData.result !== "success") throw new Error(initData.error);
+        
+        let uploadUrl = initData.uploadUrl;
+        
+        // Dùng chuẩn 1MB để vừa xẻ file nhanh vừa giảm tải cho Google Apps Script
+        const chunkSize = 1024 * 1024; 
+        let startByte = 0;
+        let finalId = "";
 
-        while (startByte < file.size) {
-            let endByte = Math.min(startByte + chunkSize, file.size);
+        while (startByte < fileSize) {
+            let endByte = Math.min(startByte + chunkSize, fileSize);
             let chunk = file.slice(startByte, endByte);
-            let base64Chunk = await new Promise(resolve => { let r = new FileReader(); r.onload = () => resolve(r.result.split(',')[1]); r.readAsDataURL(chunk); });
-            let percent = Math.round((endByte / file.size) * 100);
-            status.innerText = `[${progressMsg}] Đang tải... ${percent}%`;
-            pBar.style.width = percent + "%"; pPercent.innerText = percent + "%";
+            const percent = Math.round((endByte / fileSize) * 100);
+            
+            status.innerText = `[${progressMsg}] Đang đồng bộ... ${percent}%`;
+            pBar.style.width = percent + "%"; 
+            pPercent.innerText = percent + "%";
 
-            let chunkRes = await fetch(API_URL, {
-                method: "POST", body: JSON.stringify({ action: "upload_chunk", uploadUrl: uploadUrl, chunkBase64: base64Chunk, startByte: startByte, endByte: endByte - 1, totalSize: file.size })
+            let chunkBase64 = await new Promise((resolve, reject) => {
+                let reader = new FileReader();
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = () => reject(new Error("Lỗi đọc bộ nhớ thiết bị"));
+                reader.readAsDataURL(chunk);
             });
-            let chunkData = await chunkRes.json();
-            if(chunkData.result !== "success") throw new Error("Lỗi mạng.");
-            if (chunkData.fileId) finalId = chunkData.fileId;
+
+            let retryCount = 0;
+            let chunkSuccess = false;
+
+            while (retryCount < 3 && !chunkSuccess) {
+                try {
+                    let pRes = await fetch(API_URL, {
+                        method: "POST",
+                        headers: { "Content-Type": "text/plain;charset=utf-8" },
+                        body: JSON.stringify({
+                            action: "upload_chunk",
+                            uploadUrl: uploadUrl,
+                            chunkBase64: chunkBase64,
+                            startByte: Math.floor(startByte),
+                            endByte: Math.floor(endByte - 1),
+                            totalSize: Math.floor(fileSize)
+                        })
+                    }); 
+
+                    if (!pRes.ok) throw new Error(`Máy chủ bận (${pRes.status})`);
+                    let pData = await pRes.json();
+                    
+                    if (pData.result !== "success") throw new Error(pData.error || "Gặp lỗi xử lý");
+                    if (pData.status === 200 || pData.status === 201) finalId = pData.fileId;
+                    
+                    chunkSuccess = true;
+                } catch (error) {
+                    retryCount++;
+                    if (retryCount >= 3) {
+                        throw new Error(`Đứt kết nối ở đoạn byte [${startByte} - ${endByte}]. Chi tiết: ${error.message}`);
+                    }
+                    status.innerText = `[${progressMsg}] Đang phục hồi kết nối (${retryCount}/3)...`;
+                    await new Promise(r => setTimeout(r, 2000)); 
+                }
+            }
+            
             startByte = endByte;
         }
+        
         return finalId;
     }
 
@@ -316,32 +387,25 @@
         let status = document.getElementById("statusText");
 
         try {
-            // =========================================================
-            // TÍNH TOÁN KHUNG GIỜ CAO ĐIỂM (MIỀN NAM VÀ BẮC)
-            // =========================================================
             let now = new Date();
             let hh = now.getHours();
             let mm = now.getMinutes();
-            let totalMins = hh * 60 + mm; // Quy đổi ra tổng số phút để tính cho chuẩn xác
+            let totalMins = hh * 60 + mm;
             
             let tenPhongBan = (currentUser.diaDiem || "").toLowerCase();
             let isMienNam = tenPhongBan.includes("miền nam") || tenPhongBan.includes("mn");
             let isGioCaoDiem = false;
 
             if (isMienNam) {
-                // MIỀN NAM: Sáng 9h-12h (540 -> 720) | Chiều 18h-21h (1080 -> 1260)
                 isGioCaoDiem = (totalMins >= 540 && totalMins <= 720) || (totalMins >= 1080 && totalMins <= 1260);
             } else {
-                // MIỀN BẮC: Sáng 9h-12h (540 -> 720) | Chiều 16h-21h (960 -> 1260)
                 isGioCaoDiem = (totalMins >= 540 && totalMins <= 720) || (totalMins >= 960 && totalMins <= 1260);
             }
             
-            // Nếu có ảnh hiện diện, quyết định text truyền về DB
             let textCaoDiem = "";
             if (img) {
                 textCaoDiem = isGioCaoDiem ? "Đạt" : "Trượt";
             }
-            // =========================================================
 
             let thoiLuongVid = "";
             if (v1) {
@@ -357,20 +421,40 @@
             }
             
             let idV1 = v1 ? `Xác thực máy (${thoiLuongVid})` : "";
-            status.innerText = "⏳ Đang đồng bộ máy chủ...";
-            document.getElementById("progressBar").style.width = "100%"; document.getElementById("progressPercent").innerText = "Hoàn tất";
+            
+            let finalVideoId = "";
+            if (v1) {
+                status.innerText = "⏳ Đang xử lý Video Then Chốt...";
+                finalVideoId = await uploadSingleFile(v1, "Video", "Tải video");
+                idV1 = finalVideoId ? `Xác thực máy (${thoiLuongVid})` : "";
+            }
 
-            // Gửi text Đạt/Trượt qua thuộc tính gioCaoDiem
-            let logRes = await fetch(API_URL, {
-                method: "POST", body: JSON.stringify({ 
-                    action: "chuyen_can", thongTinNhanSu: currentUser.thongTinNS, diaDiemLamViec: currentUser.diaDiem, 
-                    fileIdThenChot: idV1, fileIdSmile: idSmile,
-                    ngaySuaFile: videoCheckData.ngaySuaFile, dungLuongMB: videoCheckData.dungLuongMB,
-                    ketQuaCheck: videoCheckData.ketQuaCheck, luuVetCanhBao: videoCheckData.luuVetCanhBao,
+            // Khoảng nghỉ 1.5s để Google Apps Script kịp giải phóng RAM trước khi chạy hàm chốt dữ liệu
+            status.innerText = "⏳ Chuẩn bị chốt dữ liệu...";
+            await new Promise(r => setTimeout(r, 1500));
+
+            status.innerText = "⏳ Đang chốt sổ vào hệ thống...";
+            document.getElementById("progressBar").style.width = "100%"; 
+            document.getElementById("progressPercent").innerText = "Hoàn tất";
+
+            let logRes = await fetchWithRetry(API_URL, {
+                method: "POST", 
+                body: JSON.stringify({ 
+                    action: "chuyen_can", 
+                    thongTinNhanSu: currentUser.thongTinNS, 
+                    diaDiemLamViec: currentUser.diaDiem, 
+                    fileIdThenChot: idV1 || finalVideoId, 
+                    fileIdSmile: idSmile,
+                    ngaySuaFile: videoCheckData.ngaySuaFile, 
+                    dungLuongMB: videoCheckData.dungLuongMB,
+                    ketQuaCheck: videoCheckData.ketQuaCheck, 
+                    luuVetCanhBao: videoCheckData.luuVetCanhBao,
                     gioCaoDiem: textCaoDiem 
                 })
-            });
-            let logData = await logRes.json(); if(logData.result !== "success") throw new Error(logData.error);
+            }, 5, 2000);
+
+            let logData = await logRes.json(); 
+            if(logData.result !== "success") throw new Error(logData.error);
 
             status.innerText = "THÀNH CÔNG!";
             let tList = [];
@@ -386,7 +470,6 @@
                 trangThaiZalo.push("⏰ Video nộp muộn (Không ghi chuỗi)");
             }
             
-            // Thêm cảnh báo Zalo cho phần ảnh
             if (img && currentUserRole !== "Quản lý") {
                 if (isGioCaoDiem) {
                     trangThaiZalo.push("🔥 Check-in Giờ Cao Điểm");
@@ -410,7 +493,10 @@
             document.getElementById("loiNhanCustom").value = "";
             
         } catch (err) {
-            alert("Lỗi tải lên: " + err.message); status.innerText = "Thất bại!"; document.getElementById("progressBar").style.background = "#ef4444"; document.getElementById("btnSubmit").disabled = false;
+            alert("Lỗi tải lên: " + err.message); 
+            status.innerText = "Thất bại!"; 
+            document.getElementById("progressBar").style.background = "#ef4444"; 
+            document.getElementById("btnSubmit").disabled = false;
         }
     }
 
