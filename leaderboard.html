@@ -57,13 +57,13 @@
         <select id="filterVung" class="filter-select" onchange="renderFilteredMiss()">
             <option value="ALL">-- Lọc theo Quản Lý --</option>
         </select>
-        <table class="rank-table miss-table"><thead><tr><th style="text-align: left;">NHÂN SỰ</th><th>THEN CHỐT</th><th>SMILE</th></tr></thead><tbody id="bodyMiss"></tbody></table>
+        <table class="rank-table miss-table"><thead><tr><th style="text-align: left;">NHÂN SỰ</th><th>THEN CHỐT</th><th>GIỜ CĐ</th></tr></thead><tbody id="bodyMiss"></tbody></table>
     </div>
 
     <span class="btn-back" onclick="window.location.href='https://ctt-ashy.vercel.app'">← Trở về CỔNG THÔNG TIN</span>
 </div>
 <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbzFzl7eHgAnRHFwSvMRvCp71XpSVu3z9dfb4B7Y2x16KopeuPf6M-YSSDEnZQh_TvLzqA/execc";
+    const API_URL = "https://script.google.com/macros/s/AKfycbyT20s96D5M33Df2lDmAqt9TR8ISRKklP8y6tFxbNydcRJvh2resOxNeCPNng5QQ4ymGQ/exec";
     let globalMissList = [];
 
     window.onload = () => {
