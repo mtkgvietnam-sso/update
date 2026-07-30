@@ -33,6 +33,15 @@
     
     <input type="hidden" id="editId" value="">
     
+    <!-- [MỚI] Trường Địa điểm làm việc -->
+    <div class="form-group">
+        <label for="diaDiem">Địa điểm làm việc *</label>
+        <input list="listDiaDiem" id="diaDiem" class="form-control" placeholder="Gõ từ khóa để tìm địa điểm..." autocomplete="off">
+        <datalist id="listDiaDiem">
+            <!-- Dữ liệu sẽ được JS tự động điền vào đây -->
+        </datalist>
+    </div>
+
     <div class="form-group">
         <label>Họ và tên KH *</label>
         <input type="text" id="hoTen" placeholder="Nhập họ tên..." required>
@@ -76,7 +85,31 @@
     let currentUser = null;
     let customerData = [];
 
-    // Kiểm tra đăng nhập
+    // [MỚI] Tải danh sách địa điểm
+    async function loadDiaDiem() {
+        try {
+            let res = await fetch(SUPA_URL + "Danh_Muc_Dia_Diem", {
+                headers: { 
+                    "apikey": SUPA_KEY, 
+                    "Authorization": "Bearer " + SUPA_KEY 
+                }
+            });
+            let data = await res.json();
+            
+            let list = document.getElementById("listDiaDiem");
+            list.innerHTML = ""; // Xóa dữ liệu cũ nếu có
+            
+            data.forEach(item => {
+                let option = document.createElement("option");
+                option.value = item["Tên địa điểm"]; 
+                list.appendChild(option);
+            });
+        } catch (error) {
+            console.error("Lỗi tải danh mục địa điểm:", error);
+        }
+    }
+
+    // Kiểm tra đăng nhập và tải dữ liệu khi mở trang
     window.onload = () => {
         let savedSession = localStorage.getItem("userMT");
         if(!savedSession) {
@@ -85,12 +118,13 @@
             return;
         }
         currentUser = JSON.parse(savedSession);
+        
+        loadDiaDiem(); // [MỚI] Gọi hàm tải danh sách địa điểm
         loadCustomerData();
     };
 
-    // Đọc dữ liệu từ Supabase (Chỉ lấy dữ liệu do chính user này nhập)
+    // Đọc dữ liệu từ Supabase
     function loadCustomerData() {
-        // Lọc theo ma_ns để đảm bảo quản lý hay người khác không xem được
         fetch(SUPA_URL + `DataKH?ma_ns=eq.${encodeURIComponent(currentUser.thongTinNS)}&order=created_at.desc`, {
             headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY }
         })
@@ -105,16 +139,23 @@
         });
     }
 
-    // Hiển thị danh sách
+    // Hiển thị danh sách (Đã bổ sung hiển thị thêm Địa điểm)
     function renderList(data) {
         let listHTML = "";
         data.forEach(item => {
+            // Xử lý null cho địa điểm để hiển thị đẹp hơn
+            let diaDiemShow = item.dia_diem ? item.dia_diem : "Chưa cập nhật";
+            // Lọc null cho ghi chú trong hàm edit
+            let safeGhiChu = item.ghi_chu ? item.ghi_chu.replace(/'/g, "\\'") : "";
+            let safeDiaDiem = item.dia_diem ? item.dia_diem.replace(/'/g, "\\'") : "";
+
             listHTML += `
                 <div class="customer-card">
                     <h4>👤 ${item.ho_ten}</h4>
                     <p>📞 <b>SĐT:</b> ${item.sdt} | <b>Giới tính:</b> ${item.gioi_tinh}</p>
+                    <p>🏢 <b>Địa điểm:</b> ${diaDiemShow}</p>
                     <p>📍 <b>Ghi chú:</b> ${item.ghi_chu || 'Không có'}</p>
-                    <button class="btn-edit" onclick="editCustomer('${item.id}', '${item.ho_ten}', '${item.gioi_tinh}', '${item.sdt}', '${item.ghi_chu}')">Sửa</button>
+                    <button class="btn-edit" onclick="editCustomer('${item.id}', '${item.ho_ten}', '${item.gioi_tinh}', '${item.sdt}', '${safeGhiChu}', '${safeDiaDiem}')">Sửa</button>
                 </div>
             `;
         });
@@ -122,7 +163,7 @@
         document.getElementById("customerList").innerHTML = listHTML;
     }
 
-    // Tìm kiếm (Lọc trực tiếp trên mảng đã tải)
+    // Tìm kiếm
     function searchCustomer() {
         let keyword = document.getElementById("searchInput").value.toLowerCase();
         let filtered = customerData.filter(item => 
@@ -132,104 +173,105 @@
         renderList(filtered);
     }
 
-    // Đẩy dữ liệu lên form để sửa
-    function editCustomer(id, hoTen, gioiTinh, sdt, ghiChu) {
+    // Đẩy dữ liệu lên form để sửa (Bổ sung tham số diaDiem)
+    function editCustomer(id, hoTen, gioiTinh, sdt, ghiChu, diaDiem) {
         document.getElementById("editId").value = id;
         document.getElementById("hoTen").value = hoTen;
         document.getElementById("gioiTinh").value = gioiTinh;
         document.getElementById("sdt").value = sdt;
         document.getElementById("ghiChu").value = ghiChu !== 'null' ? ghiChu : '';
+        document.getElementById("diaDiem").value = diaDiem !== 'null' ? diaDiem : ''; // [MỚI]
         
         document.getElementById("formTitle").innerText = "✏️ CẬP NHẬT THÔNG TIN KHÁCH HÀNG";
         document.getElementById("btnSave").innerText = "LƯU CẬP NHẬT";
         document.getElementById("btnSave").style.background = "#f59e0b";
-        window.scrollTo(0, 0); // Cuộn lên đầu trang
+        window.scrollTo(0, 0); 
     }
 
     // Lưu mới hoặc Cập nhật
-    // Lưu mới hoặc Cập nhật
-function saveCustomer() {
-    let id = document.getElementById("editId").value;
-    let hoTen = document.getElementById("hoTen").value.trim();
-    let sdt = document.getElementById("sdt").value.trim();
-    let gioiTinh = document.getElementById("gioiTinh").value;
-    let ghiChu = document.getElementById("ghiChu").value.trim();
+    function saveCustomer() {
+        let id = document.getElementById("editId").value;
+        let hoTen = document.getElementById("hoTen").value.trim();
+        let sdt = document.getElementById("sdt").value.trim();
+        let gioiTinh = document.getElementById("gioiTinh").value;
+        let ghiChu = document.getElementById("ghiChu").value.trim();
+        let diaDiem = document.getElementById("diaDiem").value.trim(); // [MỚI]
 
-    if(!hoTen || !sdt) {
-        alert("Vui lòng điền đầy đủ Họ tên và Số điện thoại!");
-        return;
-    }
-
-    // KIỂM TRA SỐ ĐIỆN THOẠI (Bắt buộc đúng 10 số, chỉ chứa số)
-    let phoneRegex = /^\d{10}$/;
-    if (!phoneRegex.test(sdt)) {
-        alert("⚠️ Lỗi: Số điện thoại không hợp lệ!\nVui lòng nhập đúng 10 chữ số (không thừa, không thiếu, không chứa chữ cái).");
-        return;
-    }
-
-    document.getElementById("btnSave").innerText = "⏳ ĐANG LƯU...";
-    document.getElementById("btnSave").disabled = true;
-
-    let payload = {
-        ma_ns: currentUser.thongTinNS,
-        ho_ten: hoTen,
-        gioi_tinh: gioiTinh,
-        sdt: sdt,
-        ghi_chu: ghiChu
-    };
-
-    let method = id ? "PATCH" : "POST";
-    let url = SUPA_URL + "DataKH" + (id ? `?id=eq.${id}` : "");
-
-    fetch(url, {
-        method: method,
-        headers: { 
-            "apikey": SUPA_KEY, 
-            "Authorization": "Bearer " + SUPA_KEY,
-            "Content-Type": "application/json",
-            "Prefer": "return=representation"
-        },
-        body: JSON.stringify(payload)
-    })
-    .then(res => {
-        if(res.ok) {
-            alert(id ? "✅ Cập nhật thành công!" : "✅ Đã lưu khách hàng mới!");
-            
-            // XỬ LÝ ĐÁNH DẤU "SỬA" CHO GOOGLE SHEET LOG
-            // Tạo một bản sao của dữ liệu để không làm ảnh hưởng đến Supabase
-            let sheetPayload = { ...payload };
-            if (id) {
-                // Nếu là thao tác Cập nhật, gắn thêm nhãn [CẬP NHẬT] vào ghi chú
-                sheetPayload.ghi_chu = "[CẬP NHẬT] " + (sheetPayload.ghi_chu || "");
-            }
-            
-            // Gọi App Script để đồng bộ
-            syncToGoogleSheet(sheetPayload);
-            
-            resetForm();
-            loadCustomerData(); // Tải lại danh sách
-        } else {
-            alert("❌ Có lỗi xảy ra khi lưu vào Database!");
+        // Bổ sung điều kiện bắt buộc nhập địa điểm
+        if(!hoTen || !sdt || !diaDiem) {
+            alert("Vui lòng điền đầy đủ Địa điểm, Họ tên và Số điện thoại!");
+            return;
         }
-    })
-    .finally(() => {
-        document.getElementById("btnSave").disabled = false;
-    });
-}
 
+        // KIỂM TRA SỐ ĐIỆN THOẠI
+        let phoneRegex = /^\d{10}$/;
+        if (!phoneRegex.test(sdt)) {
+            alert("⚠️ Lỗi: Số điện thoại không hợp lệ!\nVui lòng nhập đúng 10 chữ số (không thừa, không thiếu, không chứa chữ cái).");
+            return;
+        }
+
+        document.getElementById("btnSave").innerText = "⏳ ĐANG LƯU...";
+        document.getElementById("btnSave").disabled = true;
+
+        // Bổ sung dia_diem vào payload
+        let payload = {
+            ma_ns: currentUser.thongTinNS,
+            ho_ten: hoTen,
+            gioi_tinh: gioiTinh,
+            sdt: sdt,
+            ghi_chu: ghiChu,
+            dia_diem: diaDiem // [MỚI]
+        };
+
+        let method = id ? "PATCH" : "POST";
+        let url = SUPA_URL + "DataKH" + (id ? `?id=eq.${id}` : "");
+
+        fetch(url, {
+            method: method,
+            headers: { 
+                "apikey": SUPA_KEY, 
+                "Authorization": "Bearer " + SUPA_KEY,
+                "Content-Type": "application/json",
+                "Prefer": "return=representation"
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(res => {
+            if(res.ok) {
+                alert(id ? "✅ Cập nhật thành công!" : "✅ Đã lưu khách hàng mới!");
+                
+                let sheetPayload = { ...payload };
+                if (id) {
+                    sheetPayload.ghi_chu = "[CẬP NHẬT] " + (sheetPayload.ghi_chu || "");
+                }
+                
+                syncToGoogleSheet(sheetPayload);
+                resetForm();
+                loadCustomerData(); 
+            } else {
+                alert("❌ Có lỗi xảy ra khi lưu vào Database!");
+            }
+        })
+        .finally(() => {
+            document.getElementById("btnSave").disabled = false;
+        });
+    }
+
+    // Reset Form (Bổ sung reset địa điểm)
     function resetForm() {
         document.getElementById("editId").value = "";
         document.getElementById("hoTen").value = "";
         document.getElementById("sdt").value = "";
         document.getElementById("ghiChu").value = "";
+        document.getElementById("diaDiem").value = ""; // [MỚI]
         document.getElementById("formTitle").innerText = "➕ NHẬP THÔNG TIN KHÁCH HÀNG";
         document.getElementById("btnSave").innerText = "LƯU THÔNG TIN";
         document.getElementById("btnSave").style.background = "#047857";
     }
 
-    // Hàm gọi về App Script để lưu backup ra Google Sheet (Tuỳ chọn)
+    // Đồng bộ Sheet
     function syncToGoogleSheet(data) {
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbymOoeYL_qZRb32fCufTlUl-TqX8oyC1IF-Y6-pZR4qFigQz2uvSBlXfIPQ3wXT0ei5mw/exec"; // ĐIỀN URL CỦA DOPOST VÀO ĐÂY
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbymOoeYL_qZRb32fCufTlUl-TqX8oyC1IF-Y6-pZR4qFigQz2uvSBlXfIPQ3wXT0ei5mw/exec"; 
         fetch(SCRIPT_URL, {
             method: "POST",
             body: JSON.stringify({
