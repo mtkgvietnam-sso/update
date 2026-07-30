@@ -20,9 +20,10 @@
         .btn-tungbill { background: linear-gradient(135deg, #0f2c59, #1a4a96); }
         .btn-chuyencan { background: linear-gradient(135deg, #e65c00, #F9D423); }
         .btn-leaderboard { background: linear-gradient(135deg, #111827, #374151); }
+        .btn-khachhang { background: linear-gradient(135deg, #10b981, #047857); } /* Màu xanh ngọc */
+        .btn-doanhso { background: linear-gradient(135deg, #d97706, #b45309); } /* ĐÃ THÊM: Màu cam/vàng đồng cho Doanh số Cash */
         .btn-logout { background: transparent; color: #d9383a; border: 1px solid #d9383a; padding: 12px; width: 100%; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer; margin-top: 20px; }
         .loading { text-align: center; color: #666; font-size: 14px; font-style: italic; display: none; margin-top: 12px; }
-        .btn-khachhang { background: linear-gradient(135deg, #10b981, #047857); } /* Màu xanh ngọc */
     </style>
 </head>
 <body>
@@ -41,7 +42,7 @@
         <a href="chuyen_can.html" class="btn-menu btn-chuyencan">📹 BÁO CÁO CHUYÊN CẦN</a>
         <a href="leaderboard.html" class="btn-menu btn-leaderboard">🏆 BẢNG VÀNG VINH DANH</a>
         <a href="thong_tin_kh.html" class="btn-menu btn-khachhang">👥 THÔNG TIN KHÁCH HÀNG</a>
-        
+        <a href="doanh_so_cash.html" class="btn-menu btn-doanhso">💰 DOANH SỐ QUA CASH</a>
     </div>
     <button class="btn-logout" onclick="logout()">Đăng xuất tài khoản</button>
 </div>
@@ -65,7 +66,15 @@
 
             document.getElementById("loadingDataText").style.display = "none";
             document.getElementById("btnLogin").disabled = false;
-            let savedSession = localStorage.getItem("userMT");
+            
+            // XỬ LÝ VƯỢT RÀO ẨN DANH LÚC MỞ TRANG
+            let savedSession = null;
+            try {
+                savedSession = localStorage.getItem("userMT") || sessionStorage.getItem("userMT");
+            } catch(e) {
+                console.warn("Trình duyệt chặn bộ nhớ.");
+            }
+            
             if(savedSession) showPortal(JSON.parse(savedSession));
         })
         .catch(() => { 
@@ -81,7 +90,16 @@
             return parts.includes(inputCode) || ns.thongTinNS.toLowerCase().includes(inputCode);
         });
         if(foundUser) {
-            localStorage.setItem("userMT", JSON.stringify(foundUser));
+            // XỬ LÝ VƯỢT RÀO ẨN DANH LÚC LƯU
+            try {
+                localStorage.setItem("userMT", JSON.stringify(foundUser));
+            } catch(e) {
+                try {
+                    sessionStorage.setItem("userMT", JSON.stringify(foundUser));
+                } catch(err) {
+                    console.warn("Không thể lưu cache, nhưng vẫn cho phép đăng nhập tạm thời.");
+                }
+            }
             showPortal(foundUser);
         } else { alert("Mã nhân sự không chính xác!"); }
     }
@@ -93,7 +111,12 @@
     }
 
     function logout() {
-        if(confirm("Bạn muốn đăng xuất?")) { localStorage.removeItem("userMT"); location.reload(); }
+        if(confirm("Bạn muốn đăng xuất?")) { 
+            // XÓA SẠCH Ở CẢ 2 BỘ NHỚ
+            try { localStorage.removeItem("userMT"); } catch(e) {}
+            try { sessionStorage.removeItem("userMT"); } catch(e) {}
+            location.reload(); 
+        }
     }
 </script>
 </body>
