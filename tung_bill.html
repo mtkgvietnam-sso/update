@@ -21,6 +21,10 @@
         .preview-box { background: #f8fafc; border: 1px dashed #cbd5e1; padding: 14px; border-radius: 10px; text-align: left; font-size: 14px; white-space: pre-line; margin: 18px 0; color: #334155; }
         .btn-zalo { background: #0068ff; color: white; border: none; padding: 16px; font-size: 16px; font-weight: bold; border-radius: 12px; width: 100%; }
         .loading { text-align: center; color: #666; font-size: 14px; font-style: italic; display: none; margin-top: 12px; }
+        .progress-wrapper { width: 100%; background-color: #e2e8f0; border-radius: 10px; margin-top: 15px; display: none; overflow: hidden; position: relative; }
+        .progress-bar { height: 20px; background: linear-gradient(90deg, #10b981, #34d399); width: 0%; transition: width 0.2s; }
+        .progress-percent { position: absolute; width: 100%; text-align: center; top: 1px; font-size: 12px; font-weight: bold; color: #0f2c59; }
+        .status-text { text-align: center; font-size: 13px; color: #ef4444; margin-top: 8px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -30,7 +34,8 @@
     <form id="dynamicForm" autocomplete="off">
         <div id="dynamicQuestionsArea"></div>
         <button type="submit" class="btn-submit" id="btnSubmit" disabled>⏳ Đang nạp cấu trúc Form từ bộ đệm...</button>
-        <div class="loading" id="loadingText">⏳ Đang xử lý dữ liệu...</div>
+        <div class="progress-wrapper" id="progressWrap"><div class="progress-bar" id="progressBar"></div><div class="progress-percent" id="progressPercent">0%</div></div>
+        <p class="status-text" id="statusText"></p>
     </form>
 </div>
 <div class="container" id="successContainer" style="display:none;">
@@ -43,10 +48,31 @@
     </div>
 </div>
 <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbzm-TXgqEKml2B_QorAuZQEvJ9grHbQe8fBsx69xOj1lw99ybxdG0AVg4dmFk91F2V1/exec"; 
+    const API_URL = "https://script.google.com/macros/s/AKfycbwbCHuuzgacm-Xkalf06nrJpEaGvuWzn7hE3Qml_IRzrcWFJeP7wKLrWo2v6Pmkrhrn/exec"; 
     const SUPA_URL = "https://fxcqspgjawbreihdopph.supabase.co/rest/v1/";
-    const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4Y3FzcGdqYXdicmVpaGRvcHBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2Njc0NDQsImV4cCI6MjA5OTI0MzQ0NH0.rWsrsIY7F3Ae4WlNw4KZfdg6i1AivHTPIvdrVDPT_QE"; // Nhớ điền Key thật của bạn vào đây nhé
+    const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4Y3FzcGdqYXdicmVpaGRvcHBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2Njc0NDQsImV4cCI6MjA5OTI0MzQ0NH0.rWsrsIY7F3Ae4WlNw4KZfdg6i1AivHTPIvdrVDPT_QE";
     let currentUser = null;
+
+    async function fetchWithRetry(url, options = {}, maxRetries = 4, delayMs = 1500) {
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                let fetchUrl = url;
+                if (url.includes("script.google.com")) {
+                    let separator = url.includes("?") ? "&" : "?";
+                    fetchUrl = url + separator + "t=" + new Date().getTime();
+                }
+                let res = await fetch(fetchUrl, options);
+                if ([500, 502, 503, 504, 429].includes(res.status) && attempt < maxRetries) {
+                    await new Promise(r => setTimeout(r, delayMs * attempt));
+                    continue;
+                }
+                return res;
+            } catch (err) {
+                if (attempt >= maxRetries) throw err;
+                await new Promise(r => setTimeout(r, delayMs * attempt));
+            }
+        }
+    }
 
     window.onload = async () => {
         let savedSession = localStorage.getItem("userMT");
@@ -54,20 +80,17 @@
         currentUser = JSON.parse(savedSession);
 
         try {
-            // Tải song song dữ liệu danh mục từ Supabase
             let [resDD, resCH] = await Promise.all([
-                fetch(SUPA_URL + "Danh_Muc_Dia_Diem?select=*", { headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY } }),
-                fetch(SUPA_URL + "Cau_Hoi_Form?select=*", { headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY } })
+                fetchWithRetry(SUPA_URL + "Danh_Muc_Dia_Diem?select=*", { headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY } }),
+                fetchWithRetry(SUPA_URL + "Cau_Hoi_Form?select=*", { headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY } })
             ]);
 
-            // Thiết lập bộ quét kiểm tra lỗi phản hồi từ Server Supabase
-            if (!resDD.ok) { let err = await resDD.json(); throw new Error("Bảng Địa điểm: " + (err.message || "Lỗi RLS/Tên bảng")); }
-            if (!resCH.ok) { let err = await resCH.json(); throw new Error("Bảng Câu hỏi: " + (err.message || "Lỗi RLS/Tên bảng")); }
+            if (!resDD.ok) throw new Error("Bảng Địa điểm lỗi");
+            if (!resCH.ok) throw new Error("Bảng Câu hỏi lỗi");
 
             let dataDD = await resDD.json();
             let dataCH = await resCH.json();
 
-            // 1. Dựng danh sách địa điểm (Hỗ trợ cả trường có dấu và không dấu)
             if (dataDD && dataDD.length > 0) {
                 let dlHTML = `<datalist id="listDiaDiem">`;
                 dataDD.forEach(dd => {
@@ -78,13 +101,10 @@
                 document.body.insertAdjacentHTML('beforeend', dlHTML);
             }
 
-            // 2. Dựng Form câu hỏi động (Hệ thống tự động ánh xạ tiêu đề chuẩn)
             let area = document.getElementById("dynamicQuestionsArea");
             area.innerHTML = "";
             
-            if (!dataCH || dataCH.length === 0) {
-                throw new Error("Không có dữ liệu câu hỏi nào được trả về. Vui lòng tắt RLS trên Supabase!");
-            }
+            if (!dataCH || dataCH.length === 0) throw new Error("Không có câu hỏi");
 
             dataCH.forEach(ch => {
                 let tieuDe = ch["Tiêu đề câu hỏi"] || ch["Tieu_de_cau_hoi"] || ch["tieu_de"];
@@ -92,7 +112,7 @@
                 let _tuyChonRaw = ch["Danh sách tùy chọn"] || ch["Danh_sach_tuy_chon"] || ch["tuy_chon"] || "";
                 let tuyChon = _tuyChonRaw ? _tuyChonRaw.split(",").map(item => item.trim()) : [];
                 
-                if (!tieuDe) return; // Bỏ qua nếu dòng lỗi/trống
+                if (!tieuDe) return;
 
                 let block = `<div class="form-group"><label>${tieuDe}</label>`;
                 if (tieuDe.toLowerCase().includes("địa điểm làm việc")) {
@@ -116,9 +136,8 @@
             btnSubmit.innerText = "GỬI THÔNG TIN";
 
         } catch (error) {
-            alert("Cổng thông tin báo lỗi kết nối bộ đệm:\n" + error.message + "\n\n💡 Mẹo: Bạn nhớ kiểm tra xem đã DISABLE RLS cho 2 bảng này trên Supabase chưa nhé!"); 
-            document.getElementById("btnSubmit").innerText = "❌ Lỗi kết nối dữ liệu Supabase";
-            console.error("Chi tiết log lỗi:", error);
+            alert("Lỗi kết nối bộ đệm:\n" + error.message); 
+            document.getElementById("btnSubmit").innerText = "❌ Lỗi kết nối dữ liệu";
         }
     };
 
@@ -141,55 +160,128 @@
         }
     });
 
-    document.getElementById("dynamicForm").addEventListener("submit", function(e) {
+    // HÀM TẢI FILE CHUNK 1MB TRỰC TIẾP LÊN DRIVE (CHỐNG NGHẼN, SIÊU NHANH)
+    async function uploadSingleFile(file, prefixName) {
+        if(!file) return ""; 
+        let status = document.getElementById("statusText");
+        let pBar = document.getElementById("progressBar");
+        let pPercent = document.getElementById("progressPercent");
+        
+        const fileSize = Math.floor(file.size);
+        if (fileSize === 0) throw new Error("File bị rỗng!");
+
+        let fileExt = file.name.substring(file.name.lastIndexOf("."));
+        let d = new Date(), ts = d.getFullYear() + ("0"+(d.getMonth()+1)).slice(-2) + ("0"+d.getDate()).slice(-2) + "_" + ("0"+d.getHours()).slice(-2) + ("0"+d.getMinutes()).slice(-2);
+        let safeFileName = currentUser.thongTinNS + "_" + prefixName + "_" + ts + fileExt;
+
+        let initRes = await fetchWithRetry(API_URL, { 
+            method: "POST", 
+            body: JSON.stringify({ action: "init_upload", fileName: safeFileName, mimeType: file.type }) 
+        });
+        let initData = await initRes.json(); 
+        if(initData.result !== "success") throw new Error(initData.error);
+        
+        let uploadUrl = initData.uploadUrl;
+        const chunkSize = 1024 * 1024; 
+        let startByte = 0;
+        let finalId = "";
+
+        while (startByte < fileSize) {
+            let endByte = Math.min(startByte + chunkSize, fileSize);
+            let chunk = file.slice(startByte, endByte);
+            const percent = Math.round((endByte / fileSize) * 100);
+            
+            status.innerText = `Đang tải ảnh lên Drive... ${percent}%`;
+            pBar.style.width = percent + "%"; 
+            pPercent.innerText = percent + "%";
+
+            let chunkBase64 = await new Promise((resolve) => {
+                let reader = new FileReader();
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.readAsDataURL(chunk);
+            });
+
+            let pRes = await fetch(API_URL, {
+                method: "POST",
+                headers: { "Content-Type": "text/plain;charset=utf-8" },
+                body: JSON.stringify({
+                    action: "upload_chunk",
+                    uploadUrl: uploadUrl,
+                    chunkBase64: chunkBase64,
+                    startByte: Math.floor(startByte),
+                    endByte: Math.floor(endByte - 1),
+                    totalSize: Math.floor(fileSize)
+                })
+            }); 
+
+            let pData = await pRes.json();
+            if (pData.status === 200 || pData.status === 201) finalId = pData.fileId;
+            startByte = endByte;
+        }
+        
+        return finalId ? "https://drive.google.com/file/d/" + finalId + "/view" : "";
+    }
+
+    document.getElementById("dynamicForm").addEventListener("submit", async function(e) {
         e.preventDefault();
         let inputs = document.getElementById("dynamicQuestionsArea").querySelectorAll("input, select, textarea");
-        if(inputs.length === 0) {
-            alert("Hệ thống chưa đồng bộ xong cấu trúc, vui lòng chờ trong giây lát!");
-            return;
-        }
+        if(inputs.length === 0) return alert("Hệ thống chưa đồng bộ xong cấu trúc!");
 
         document.getElementById("btnSubmit").disabled = true;
-        document.getElementById("loadingText").style.display = "block";
-        let cauHoiDongData = {}, textZalo = "";
-        
-        inputs.forEach(input => {
-            let tieuDeCH = input.getAttribute("data-title");
-            let val = input.value;
-            if(input.type === "file") { cauHoiDongData[tieuDeCH] = "[FILE_ANH]"; } 
-            else {
-                cauHoiDongData[tieuDeCH] = val;
-                if (input.type === "number" && val !== "") textZalo += `• ${tieuDeCH}: ${Number(val).toLocaleString('de-DE')}\n`;
-                else textZalo += `• ${tieuDeCH}: ${val}\n`;
+        document.getElementById("progressWrap").style.display = "block";
+        let status = document.getElementById("statusText");
+
+        try {
+            let fileAnh = document.getElementById("fileAnhDong");
+            let fileUrl = "";
+            if (fileAnh && fileAnh.files[0]) {
+                status.innerText = "⏳ Đang đẩy ảnh ngầm lên Google Drive...";
+                fileUrl = await uploadSingleFile(fileAnh.files[0], "TungBill_HD");
             }
-        });
 
-        let payload = { action: "tung_bill", thongTinNhanSu: currentUser.thongTinNS, diaDiemLamViec: currentUser.diaDiem, cauHoiDong: cauHoiDongData };
-        let fileAnh = document.getElementById("fileAnhDong");
-        if (fileAnh && fileAnh.files[0]) {
-            let reader = new FileReader(); reader.readAsDataURL(fileAnh.files[0]);
-            reader.onload = function () { payload.imageBuffer = reader.result; payload.imageName = fileAnh.files[0].name; submitGoogle(payload, textZalo); };
-        } else { submitGoogle(payload, textZalo); }
-    });
+            status.innerText = "⏳ Đang chốt sổ vào hệ thống...";
+            document.getElementById("progressBar").style.width = "100%";
+            document.getElementById("progressPercent").innerText = "Hoàn tất";
 
-    function submitGoogle(payload, textZalo) {
-        fetch(API_URL, { method: "POST", body: JSON.stringify(payload) })
-        .then(res => res.json()).then(res => {
+            let cauHoiDongData = {}, textZalo = "";
+            inputs.forEach(input => {
+                let tieuDeCH = input.getAttribute("data-title");
+                let val = input.value;
+                if(input.type === "file") { 
+                    cauHoiDongData[tieuDeCH] = fileUrl; 
+                } else {
+                    cauHoiDongData[tieuDeCH] = val;
+                    if (input.type === "number" && val !== "") textZalo += `• ${tieuDeCH}: ${Number(val).toLocaleString('de-DE')}\n`;
+                    else textZalo += `• ${tieuDeCH}: ${val}\n`;
+                }
+            });
+
+            let payload = { 
+                action: "tung_bill", 
+                thongTinNhanSu: currentUser.thongTinNS, 
+                diaDiemLamViec: currentUser.diaDiem, 
+                fileUrl: fileUrl, 
+                cauHoiDong: cauHoiDongData 
+            };
+
+            let logRes = await fetchWithRetry(API_URL, { method: "POST", body: JSON.stringify(payload) });
+            let res = await logRes.json();
+            
             if(res.result === "success") {
                 let textFinal = `*🔥 CHIẾN BINH LAN TỎA MỤC TIÊU 🔥*\n\n• Nhân sự: *${currentUser.thongTinNS}*\n• Vùng/Địa điểm: ${currentUser.diaDiem}\n${textZalo}\n🚀 Em vừa hoàn thành báo cáo hoạt động! Đồng đội cùng tăng tốc nhé! 💪✨`;
                 document.getElementById("shareContent").innerText = textFinal;
                 document.getElementById("formContainer").style.display = "none";
                 document.getElementById("successContainer").style.display = "block";
-            } else { alert("Hệ thống lỗi: " + res.error); resetBtn(); }
-        }).catch(() => { alert("Lỗi kết nối mạng!"); resetBtn(); });
-    }
-    
-    function resetBtn() { 
-        document.getElementById("btnSubmit").disabled = false; 
-        document.getElementById("btnSubmit").innerText = "GỬI THÔNG TIN"; 
-        document.getElementById("loadingText").style.display = "none"; 
-    }
-    
+            } else { 
+                throw new Error(res.error || "Lỗi lưu dữ liệu"); 
+            }
+        } catch (err) {
+            alert("Lỗi: " + err.message);
+            document.getElementById("btnSubmit").disabled = false;
+            document.getElementById("progressWrap").style.display = "none";
+        }
+    });
+
     function copyAndOpenZalo() {
         navigator.clipboard.writeText(document.getElementById("shareContent").innerText).then(() => {
             alert("Đã COPY văn bản báo cáo! Bạn dán trực tiếp vào Zalo."); window.location.href = "zalo://";
